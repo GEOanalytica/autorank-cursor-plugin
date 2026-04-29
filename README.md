@@ -16,7 +16,7 @@ The private AutoRank platform owns authentication, entitlements, domain scoping,
 Use this public GitHub repository URL in Cursor's plugin submission form:
 
 ```text
-https://github.com/autorank-ai/autorank-cursor-plugin
+https://github.com/GEOanalytica/autorank-cursor-plugin
 ```
 
 Do not submit the private AutoRank app repository.
@@ -85,7 +85,7 @@ Then point Cursor at the linked command:
 
 Cursor can use `.cursor/mcp.json` for a project-level config or `~/.cursor/mcp.json` for a global config.
 
-The marketplace `mcp.json` uses `npx -y @autorank/cursor-mcp`, so the package must be published before marketplace submission.
+The marketplace `mcp.json` uses `npx -y github:GEOanalytica/autorank-cursor-plugin`, so it can run from the public GitHub repo without publishing a public npm package.
 
 ## Tools
 

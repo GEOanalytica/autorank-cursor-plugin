@@ -3,7 +3,7 @@
     "autorank": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@autorank/cursor-mcp"],
+      "args": ["-y", "github:GEOanalytica/autorank-cursor-plugin"],
       "env": {
         "AUTORANK_API_KEY": "${env:AUTORANK_API_KEY}",
         "AUTORANK_DOMAIN_ID": "${env:AUTORANK_DOMAIN_ID}",
