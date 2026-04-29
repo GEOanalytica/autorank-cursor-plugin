@@ -152,4 +152,59 @@ describe("Cursor stdio e2e", () => {
       await client.close();
     }
   });
+
+  it("starts in demo mode when reviewers run it without AutoRank credentials", async () => {
+    const statePath = join(stateDir, "review-state.json");
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: ["dist/server.js"],
+      cwd: process.cwd(),
+      env: {
+        PATH: process.env.PATH ?? "",
+        HOME: process.env.HOME ?? "",
+        AUTORANK_MCP_STATE_PATH: statePath,
+      },
+      stderr: "pipe",
+    });
+    const client = new Client({ name: "autorank-review-client", version: "0.1.0" });
+
+    await client.connect(transport);
+
+    try {
+      const tools = await client.listTools();
+      expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+        "create_content_brief",
+        "explain_content_idea",
+        "get_content_ideas_for_topic",
+      ]);
+
+      const ideasResult = await client.callTool({
+        name: "get_content_ideas_for_topic",
+        arguments: {
+          topic_text: "AI search monitoring for B2B SaaS",
+          num_ideas: 1,
+        },
+      });
+      expect(JSON.stringify(ideasResult.structuredContent)).toContain("Demo mode");
+      expect(JSON.stringify(ideasResult.structuredContent)).toContain("AI search monitoring for B2B SaaS");
+
+      const explainResult = await client.callTool({
+        name: "explain_content_idea",
+        arguments: { idea_index: 1 },
+      });
+      expect(JSON.stringify(explainResult.structuredContent)).toContain("configure AUTORANK_API_KEY");
+
+      const briefResult = await client.callTool({
+        name: "create_content_brief",
+        arguments: { idea_index: 1 },
+      });
+      expect(JSON.stringify(briefResult.structuredContent)).toContain("sample evidence");
+
+      const persistedState = await readFile(statePath, "utf8");
+      expect(persistedState).toContain("Demo mode");
+      expect(persistedState).not.toMatch(/refresh_token|access_token|service_role|amcp_/i);
+    } finally {
+      await client.close();
+    }
+  });
 });

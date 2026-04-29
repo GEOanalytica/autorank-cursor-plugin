@@ -11,6 +11,8 @@ This public repo intentionally contains only Cursor-facing glue:
 
 The private AutoRank platform owns authentication, entitlements, domain scoping, scraping, citation analysis, and content-idea orchestration.
 
+If the plugin is installed without AutoRank credentials, it starts in clearly-labelled demo mode so reviewers can inspect the tool flow without access to customer data. Live results require a scoped AutoRank MCP key.
+
 ## Cursor Marketplace Repository
 
 Use this public GitHub repository URL in Cursor's plugin submission form:
@@ -27,6 +29,8 @@ Do not submit the private AutoRank app repository.
 - AutoRank MCP API key scoped to a domain
 - AutoRank domain ID
 - AutoRank API base URL
+
+Without these values, the MCP server still starts and returns demo data. Demo responses are labelled as demo evidence and are not live AutoRank results.
 
 ## Configure
 
@@ -47,6 +51,12 @@ Authorization: Bearer $AUTORANK_API_KEY
 
 The key must be scoped to the requested domain.
 
+To force demo mode even when other environment variables are present:
+
+```bash
+export AUTORANK_DEMO_MODE=1
+```
+
 ## Local Development
 
 ```bash
@@ -66,7 +76,7 @@ Cursor UX is owned here, not in the core app. Iterating on tool names, skill ins
 Release gates before marketplace submission:
 
 1. Unit tests pass: `npm test`
-2. Stdio e2e passes: `npm run test:e2e`
+2. Stdio e2e passes: `npm run test:e2e`, including reviewer demo mode with no credentials
 3. Public install smoke passes: `npx -y github:GEOanalytica/autorank-cursor-plugin`
 4. Production e2e passes against an internal AutoRank domain and scoped MCP key: `npm run test:prod`
 5. No core product UI or app bundle changes are required for plugin UX iteration

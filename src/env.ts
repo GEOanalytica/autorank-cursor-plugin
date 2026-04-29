@@ -45,7 +45,17 @@ export interface AutorankEnv {
   domainId: string;
 }
 
-export function loadAutorankEnv(): AutorankEnv {
+export interface AutorankEnvStatus {
+  env: Partial<AutorankEnv>;
+  missing: string[];
+  demoMode: boolean;
+}
+
+function isTruthyEnv(value: string | undefined): boolean {
+  return ["1", "true", "yes"].includes((value ?? "").trim().toLowerCase());
+}
+
+export function readAutorankEnv(): AutorankEnvStatus {
   const cwdEnv = readOptionalEnvFile(".env");
   const cwdLocalEnv = readOptionalEnvFile(".env.local");
 
@@ -73,6 +83,26 @@ export function loadAutorankEnv(): AutorankEnv {
     cwdEnv.AUTORANK_DOMAIN_ID ??
     cwdLocalEnv.AUTORANK_DOMAIN_ID ??
     "";
+
+  const missing: string[] = [];
+  if (!apiBaseUrl) missing.push("AUTORANK_API_BASE_URL");
+  if (!apiKey) missing.push("AUTORANK_API_KEY");
+  if (!domainId) missing.push("AUTORANK_DOMAIN_ID");
+
+  return {
+    env: {
+      apiBaseUrl,
+      apiKey,
+      domainId,
+    },
+    missing,
+    demoMode: isTruthyEnv(process.env.AUTORANK_DEMO_MODE ?? cwdEnv.AUTORANK_DEMO_MODE ?? cwdLocalEnv.AUTORANK_DEMO_MODE),
+  };
+}
+
+export function loadAutorankEnv(): AutorankEnv {
+  const status = readAutorankEnv();
+  const { apiBaseUrl = "", apiKey = "", domainId = "" } = status.env;
 
   if (!apiBaseUrl) {
     throw new Error("Missing AutoRank API base URL. Set AUTORANK_API_BASE_URL or VITE_SUPABASE_URL.");

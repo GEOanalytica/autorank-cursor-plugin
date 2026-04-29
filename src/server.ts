@@ -5,6 +5,8 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
+import { DemoAutorankMcpService } from "./demo-service.js";
+import { readAutorankEnv } from "./env.js";
 import { formatContentIdeasResult, formatExplainIdeaResult } from "./format.js";
 import { AutorankMcpService } from "./service.js";
 import { FileStateStore } from "./state.js";
@@ -18,9 +20,21 @@ function asStructuredContent<T extends object>(value: T): Record<string, unknown
   return value as Record<string, unknown>;
 }
 
+function createDefaultService(): AutorankToolService {
+  const stateStore = new FileStateStore();
+  const envStatus = readAutorankEnv();
+
+  if (envStatus.demoMode || envStatus.missing.length === 3) {
+    return new DemoAutorankMcpService(stateStore);
+  }
+
+  return new AutorankMcpService(stateStore);
+}
+
 export function createAutorankMcpServer(
-  service: AutorankToolService = new AutorankMcpService(new FileStateStore()),
+  service?: AutorankToolService,
 ): McpServer {
+  const toolService = service ?? createDefaultService();
   const server = new McpServer(
     {
       name: "autorank-mcp",
@@ -77,7 +91,7 @@ export function createAutorankMcpServer(
       },
     },
     async ({ topic_text, num_prompts, num_ideas, evidence_wait_ms, ideas_wait_ms }) => {
-      const result = await service.getContentIdeasForTopic({
+      const result = await toolService.getContentIdeasForTopic({
         topicText: topic_text,
         numPrompts: num_prompts,
         numIdeas: num_ideas,
@@ -147,7 +161,7 @@ export function createAutorankMcpServer(
       },
     },
     async ({ idea_index }) => {
-      const result = await service.explainIdea(idea_index - 1);
+      const result = await toolService.explainIdea(idea_index - 1);
       return {
         content: [{ type: "text", text: formatExplainIdeaResult(result) }],
         structuredContent: asStructuredContent(result),
@@ -177,7 +191,7 @@ export function createAutorankMcpServer(
       },
     },
     async ({ idea_index }) => {
-      const result = await service.createContentBrief(idea_index - 1);
+      const result = await toolService.createContentBrief(idea_index - 1);
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         structuredContent: asStructuredContent(result),
