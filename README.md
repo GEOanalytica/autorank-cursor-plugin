@@ -61,6 +61,8 @@ npm start
 
 This plugin is isolated from the core AutoRank app. The public repository contains only Cursor-facing glue and calls a small backend API contract owned by AutoRank.
 
+Cursor UX is owned here, not in the core app. Iterating on tool names, skill instructions, response formatting, setup docs, and stdio behavior should happen in this repository.
+
 Release gates before marketplace submission:
 
 1. Unit tests pass: `npm test`
@@ -70,6 +72,18 @@ Release gates before marketplace submission:
 5. No core product UI or app bundle changes are required for plugin UX iteration
 
 The e2e test starts the compiled MCP server the same way Cursor does, sends it through a mock AutoRank API, verifies the `Authorization` and `domain_id` contract, exercises the ideas -> explain -> brief flow, and checks that secrets are not written into local state or tool responses.
+
+## Manual UX Smoke
+
+After backend deployment, run one internal Cursor session before marketplace submission:
+
+1. Set `AUTORANK_API_KEY`, `AUTORANK_DOMAIN_ID`, and `AUTORANK_API_BASE_URL`.
+2. Start a fresh Cursor agent session with this plugin enabled.
+3. Ask: `Give me content ideas for AI search monitoring for B2B SaaS`.
+4. Confirm the agent returns a short ranked list, evidence summary, and a clear next step.
+5. Ask it to explain the strongest idea.
+6. Ask it to create a brief.
+7. Confirm no secrets, setup tokens, raw Supabase errors, or irrelevant product internals appear in the transcript.
 
 ## Local Cursor Setup
 
