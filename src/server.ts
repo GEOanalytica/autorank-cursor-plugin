@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import { DemoAutorankMcpService } from "./demo-service.js";
-import { readAutorankEnv } from "./env.js";
+import { readAutorankEnv, type AutorankEnv } from "./env.js";
 import { formatContentBriefResult, formatContentIdeasResult, formatExplainIdeaResult } from "./format.js";
 import { AutorankMcpService } from "./service.js";
 import { FileStateStore } from "./state.js";
@@ -16,6 +16,25 @@ export type AutorankToolService = Pick<
   "getContentIdeasForTopic" | "explainIdea" | "createContentBrief"
 >;
 
+function createMissingConfigService(missing: string[]): AutorankToolService {
+  const message = [
+    `AutoRank MCP is partially configured and cannot call the live API. Missing: ${missing.join(", ")}.`,
+    "Set AUTORANK_API_KEY, AUTORANK_DOMAIN_ID, and AUTORANK_API_BASE_URL, or set AUTORANK_DEMO_MODE=1 for demo mode.",
+  ].join(" ");
+
+  return {
+    async getContentIdeasForTopic() {
+      throw new Error(message);
+    },
+    async explainIdea() {
+      throw new Error(message);
+    },
+    async createContentBrief() {
+      throw new Error(message);
+    },
+  };
+}
+
 function asStructuredContent<T extends object>(value: T): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
@@ -24,11 +43,18 @@ function createDefaultService(): AutorankToolService {
   const stateStore = new FileStateStore();
   const envStatus = readAutorankEnv();
 
-  if (envStatus.demoMode || envStatus.missing.length === 3) {
+  if (
+    envStatus.demoMode ||
+    (!envStatus.hasExplicitAutorankConfig && envStatus.missing.length > 0)
+  ) {
     return new DemoAutorankMcpService(stateStore);
   }
 
-  return new AutorankMcpService(stateStore);
+  if (envStatus.missing.length > 0) {
+    return createMissingConfigService(envStatus.missing);
+  }
+
+  return new AutorankMcpService(stateStore, envStatus.env as AutorankEnv);
 }
 
 export function createAutorankMcpServer(

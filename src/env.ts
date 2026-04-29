@@ -49,40 +49,55 @@ export interface AutorankEnvStatus {
   env: Partial<AutorankEnv>;
   missing: string[];
   demoMode: boolean;
+  hasExplicitAutorankConfig: boolean;
 }
 
 function isTruthyEnv(value: string | undefined): boolean {
   return ["1", "true", "yes"].includes((value ?? "").trim().toLowerCase());
 }
 
+function normalizeEnvValue(value: string | undefined): string {
+  const normalized = stripWrappingQuotes(value ?? "").trim();
+  if (/^\$\{(?:env|input):[^}]+}$/.test(normalized)) {
+    return "";
+  }
+  return normalized;
+}
+
+function firstNonEmptyEnvValue(...values: Array<string | undefined>): string {
+  for (const value of values) {
+    const normalized = normalizeEnvValue(value);
+    if (normalized) return normalized;
+  }
+  return "";
+}
+
 export function readAutorankEnv(): AutorankEnvStatus {
   const cwdEnv = readOptionalEnvFile(".env");
   const cwdLocalEnv = readOptionalEnvFile(".env.local");
 
-  const supabaseUrl =
-    process.env.VITE_SUPABASE_URL ??
-    cwdEnv.VITE_SUPABASE_URL ??
-    cwdLocalEnv.VITE_SUPABASE_URL ??
-    process.env.SUPABASE_URL ??
-    "";
-
-  const apiBaseUrl =
-    process.env.AUTORANK_API_BASE_URL ??
-    cwdEnv.AUTORANK_API_BASE_URL ??
-    cwdLocalEnv.AUTORANK_API_BASE_URL ??
-    (supabaseUrl ? `${supabaseUrl.replace(/\/+$/, "")}/functions/v1` : "");
-
-  const apiKey =
-    process.env.AUTORANK_API_KEY ??
-    cwdEnv.AUTORANK_API_KEY ??
-    cwdLocalEnv.AUTORANK_API_KEY ??
-    "";
-
-  const domainId =
-    process.env.AUTORANK_DOMAIN_ID ??
-    cwdEnv.AUTORANK_DOMAIN_ID ??
-    cwdLocalEnv.AUTORANK_DOMAIN_ID ??
-    "";
+  const explicitApiBaseUrl = firstNonEmptyEnvValue(
+    process.env.AUTORANK_API_BASE_URL,
+    cwdEnv.AUTORANK_API_BASE_URL,
+    cwdLocalEnv.AUTORANK_API_BASE_URL,
+  );
+  const apiKey = firstNonEmptyEnvValue(
+    process.env.AUTORANK_API_KEY,
+    cwdEnv.AUTORANK_API_KEY,
+    cwdLocalEnv.AUTORANK_API_KEY,
+  );
+  const domainId = firstNonEmptyEnvValue(
+    process.env.AUTORANK_DOMAIN_ID,
+    cwdEnv.AUTORANK_DOMAIN_ID,
+    cwdLocalEnv.AUTORANK_DOMAIN_ID,
+  );
+  const supabaseUrl = firstNonEmptyEnvValue(
+    process.env.VITE_SUPABASE_URL,
+    cwdEnv.VITE_SUPABASE_URL,
+    cwdLocalEnv.VITE_SUPABASE_URL,
+    process.env.SUPABASE_URL,
+  );
+  const apiBaseUrl = explicitApiBaseUrl || (supabaseUrl ? `${supabaseUrl.replace(/\/+$/, "")}/functions/v1` : "");
 
   const missing: string[] = [];
   if (!apiBaseUrl) missing.push("AUTORANK_API_BASE_URL");
@@ -96,7 +111,12 @@ export function readAutorankEnv(): AutorankEnvStatus {
       domainId,
     },
     missing,
-    demoMode: isTruthyEnv(process.env.AUTORANK_DEMO_MODE ?? cwdEnv.AUTORANK_DEMO_MODE ?? cwdLocalEnv.AUTORANK_DEMO_MODE),
+    demoMode: isTruthyEnv(firstNonEmptyEnvValue(
+      process.env.AUTORANK_DEMO_MODE,
+      cwdEnv.AUTORANK_DEMO_MODE,
+      cwdLocalEnv.AUTORANK_DEMO_MODE,
+    )),
+    hasExplicitAutorankConfig: Boolean(explicitApiBaseUrl || apiKey || domainId),
   };
 }
 

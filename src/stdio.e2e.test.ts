@@ -162,6 +162,7 @@ describe("Cursor stdio e2e", () => {
       env: {
         PATH: process.env.PATH ?? "",
         HOME: process.env.HOME ?? "",
+        AUTORANK_DEMO_MODE: "1",
         AUTORANK_MCP_STATE_PATH: statePath,
       },
       stderr: "pipe",
