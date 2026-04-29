@@ -1,0 +1,28 @@
+{
+  "name": "autorank-content-ideas",
+  "displayName": "AutoRank Content Ideas",
+  "version": "0.1.0",
+  "description": "Generate AI-search content ideas and briefs backed by AutoRank citation evidence.",
+  "author": {
+    "name": "AutoRank",
+    "email": "nima@autorank.ai"
+  },
+  "homepage": "https://autorank.ai",
+  "repository": "https://github.com/autorank-ai/autorank-cursor-plugin",
+  "license": "MIT",
+  "keywords": [
+    "autorank",
+    "ai-search",
+    "mcp",
+    "content-ideas",
+    "geo"
+  ],
+  "category": "developer-tools",
+  "tags": [
+    "mcp",
+    "content",
+    "seo",
+    "geo"
+  ],
+  "skills": "./skills/"
+}

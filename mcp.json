@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "autorank": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@autorank/cursor-mcp"],
+      "env": {
+        "AUTORANK_API_KEY": "${env:AUTORANK_API_KEY}",
+        "AUTORANK_DOMAIN_ID": "${env:AUTORANK_DOMAIN_ID}",
+        "AUTORANK_API_BASE_URL": "${env:AUTORANK_API_BASE_URL}"
+      }
+    }
+  }
+}
