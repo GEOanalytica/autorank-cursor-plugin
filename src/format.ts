@@ -1,4 +1,5 @@
 import type {
+  ContentBriefToolResult,
   ContentIdeaToolResult,
   ExplainIdeaToolResult,
 } from "./types.js";
@@ -62,6 +63,32 @@ export function formatExplainIdeaResult(result: ExplainIdeaToolResult): string {
     "",
     `Recommended angle: ${result.recommended_angle}`,
     result.proof_notes ? `Proof notes: ${result.proof_notes}` : null,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join("\n");
+}
+
+export function formatContentBriefResult(result: ContentBriefToolResult): string {
+  return [
+    `Title: ${result.title}`,
+    `Content type: ${result.content_type}`,
+    result.audience ? `Audience: ${result.audience}` : null,
+    "",
+    "Target prompts:",
+    renderBulletList(result.target_prompts),
+    "",
+    "Outline:",
+    renderBulletList(result.outline),
+    "",
+    "Key claims:",
+    renderBulletList(result.key_claims),
+    result.faq.length > 0 ? "\nFAQ:" : null,
+    result.faq.length > 0 ? renderBulletList(result.faq) : null,
+    "",
+    `CTA: ${result.cta}`,
+    "",
+    "Notes:",
+    renderBulletList(result.metadata_notes),
   ]
     .filter((value): value is string => Boolean(value))
     .join("\n");

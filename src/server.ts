@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { DemoAutorankMcpService } from "./demo-service.js";
 import { readAutorankEnv } from "./env.js";
-import { formatContentIdeasResult, formatExplainIdeaResult } from "./format.js";
+import { formatContentBriefResult, formatContentIdeasResult, formatExplainIdeaResult } from "./format.js";
 import { AutorankMcpService } from "./service.js";
 import { FileStateStore } from "./state.js";
 
@@ -193,7 +193,7 @@ export function createAutorankMcpServer(
     async ({ idea_index }) => {
       const result = await toolService.createContentBrief(idea_index - 1);
       return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        content: [{ type: "text", text: formatContentBriefResult(result) }],
         structuredContent: asStructuredContent(result),
       };
     },

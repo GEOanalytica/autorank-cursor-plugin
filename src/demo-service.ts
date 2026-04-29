@@ -14,10 +14,11 @@ import type {
 } from "./types.js";
 
 function demoPrompts(topic: string): string[] {
+  const normalizedTopic = topic.trim();
   return [
-    `best ${topic} tools for growing companies`,
-    `how to improve AI search visibility for ${topic}`,
-    `${topic} implementation checklist`,
+    `what is the best ${normalizedTopic} solution for B2B teams`,
+    `how should a company measure ${normalizedTopic} in ChatGPT and Perplexity`,
+    `${normalizedTopic} checklist before launching a content program`,
   ];
 }
 
@@ -27,7 +28,7 @@ function demoIdeas(topic: string, limit: number): StoredIdea[] {
       articleId: null,
       headline: `${topic}: the practical buyer's checklist`,
       whyThisWorks:
-        "Demo mode: competitors are often cited for checklist-style pages, while the target site may not have a page that answers selection and implementation questions directly.",
+        "Demo mode: checklist-style pages are a strong fit when AI answers need selection criteria, implementation steps, and proof points in one place.",
       suggestedOutline: [
         "Define the buying trigger",
         "List the core evaluation criteria",
@@ -46,7 +47,7 @@ function demoIdeas(topic: string, limit: number): StoredIdea[] {
       articleId: null,
       headline: `How to measure ${topic} before competitors win the citation`,
       whyThisWorks:
-        "Demo mode: AI answers tend to reward pages that define the problem, show measurable signals, and cite concrete workflows.",
+        "Demo mode: measurement-led pages make the invisible problem concrete by tying prompts, cited competitors, and missing pages to a repeatable workflow.",
       suggestedOutline: [
         "Explain the measurement problem",
         "Map the prompts buyers ask",
@@ -75,7 +76,7 @@ function storedIdeaToResultIdea(idea: StoredIdea, contentGapStatus: "gap" | "par
       whyThisWorks: idea.whyThisWorks,
       contentGapStatus,
     }),
-    reason: "Demo evidence shows how AutoRank will connect prompts, competitor citations, and content opportunities once configured.",
+    reason: compactWhyThisWorks(idea.whyThisWorks),
     whyThisWorks: idea.whyThisWorks,
     suggestedOutline: idea.suggestedOutline,
     readerIntentTakeaway: idea.readerIntentTakeaway,
@@ -101,10 +102,10 @@ export class DemoAutorankMcpService {
       topicName,
       promptTexts,
       promptsWithResults: promptTexts.length,
-      topCompetitorDomains: ["example-competitor.com", "category-leader.example"],
+      topCompetitorDomains: ["sample-category-leader.example", "sample-visibility-tool.example"],
       sampleCitedUrls: [
-        "https://example-competitor.com/checklist",
-        "https://category-leader.example/resources",
+        "https://sample-category-leader.example/checklist",
+        "https://sample-visibility-tool.example/resources",
       ],
       targetUrl: null,
       contentGapStatus,
