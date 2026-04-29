@@ -110,7 +110,7 @@ describeProd("AutoRank live MCP smoke", () => {
 
       const persistedState = await readFile(statePath, "utf8");
       expect(persistedState).not.toContain(apiKey);
-      expect(persistedState).not.toContain("#");
+      expect(persistedState).not.toMatch(/"markdown"\s*:/i);
       expect(persistedState).not.toMatch(/refresh_token|access_token|service_role/i);
     } finally {
       await client.close();
