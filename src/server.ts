@@ -7,13 +7,16 @@ import { z } from "zod";
 
 import { DemoAutorankMcpService } from "./demo-service.js";
 import { readAutorankEnv, type AutorankEnv } from "./env.js";
-import { formatContentBriefResult, formatContentIdeasResult, formatExplainIdeaResult } from "./format.js";
-import { AutorankMcpService } from "./service.js";
+import {
+  formatArticleIdeasResult,
+  formatCreateArticleResult,
+} from "./format.js";
+import { AutorankMcpService, inferEvidenceStatus } from "./service.js";
 import { FileStateStore } from "./state.js";
 
 export type AutorankToolService = Pick<
   AutorankMcpService,
-  "getContentIdeasForTopic" | "explainIdea" | "createContentBrief"
+  "getArticleIdeasForTopic" | "createArticle"
 >;
 
 function createMissingConfigService(missing: string[]): AutorankToolService {
@@ -23,13 +26,10 @@ function createMissingConfigService(missing: string[]): AutorankToolService {
   ].join(" ");
 
   return {
-    async getContentIdeasForTopic() {
+    async getArticleIdeasForTopic() {
       throw new Error(message);
     },
-    async explainIdea() {
-      throw new Error(message);
-    },
-    async createContentBrief() {
+    async createArticle() {
       throw new Error(message);
     },
   };
@@ -68,19 +68,19 @@ export function createAutorankMcpServer(
     },
     {
       instructions:
-        "Use get_content_ideas_for_topic to generate citation-informed content ideas, then explain_content_idea or create_content_brief for follow-up work. Configure AUTORANK_API_KEY, AUTORANK_DOMAIN_ID, and AUTORANK_API_BASE_URL.",
+        "Use get_article_ideas_for_topic to generate article ideas from a business topic, then create_article to write the selected idea as full markdown. Configure AUTORANK_API_KEY, AUTORANK_DOMAIN_ID, and AUTORANK_API_BASE_URL for live AutoRank evidence.",
     },
   );
 
   server.registerTool(
-    "get_content_ideas_for_topic",
+    "get_article_ideas_for_topic",
     {
-      title: "Get content ideas for topic",
+      title: "Get article ideas for topic",
       description:
-        "Generate prompts for a topic, gather citation proof, and return content ideas backed by AutoRank evidence.",
+        "Turn a business topic into a short list of article ideas backed by AutoRank domain context and AI-search evidence when available.",
       inputSchema: {
-        topic_text: z.string().describe("Topic to explore, for example AI visibility monitoring for startups"),
-        num_prompts: z.number().int().min(3).max(10).optional(),
+        topic_text: z.string().describe("Topic to explore, for example jacuzzi maintenance or passwordless login"),
+        num_prompts: z.number().int().min(3).max(5).optional(),
         num_ideas: z.number().int().min(1).max(5).optional(),
         evidence_wait_ms: z.number().int().min(1000).max(300000).optional(),
         ideas_wait_ms: z.number().int().min(1000).max(300000).optional(),
@@ -91,13 +91,12 @@ export function createAutorankMcpServer(
           name: z.string(),
         }),
         evidence_summary: z.object({
+          status: z.enum(["live", "cached", "fallback"]),
           prompts_used: z.array(z.string()),
           prompts_with_results: z.number(),
-          top_competitor_domains: z.array(z.string()),
+          top_cited_domains: z.array(z.string()),
           sample_cited_urls: z.array(z.string()),
-          target_url: z.string().nullable(),
-          content_gap_status: z.enum(["gap", "partial"]).nullable(),
-          pattern_summary: z.string().nullable(),
+          notes: z.string().nullable(),
         }),
         ideas: z.array(
           z.object({
@@ -105,10 +104,9 @@ export function createAutorankMcpServer(
             title: z.string(),
             content_type: z.string(),
             priority: z.enum(["high", "medium", "low"]),
-            reason: z.string(),
             why_this_works: z.string(),
-            suggested_outline: z.array(z.string()),
             reader_intent_takeaway: z.string().nullable(),
+            suggested_outline: z.array(z.string()),
             information_gain_slot: z.string().nullable(),
             prompt: z.string().nullable(),
             intent_types: z.array(z.string()),
@@ -117,7 +115,7 @@ export function createAutorankMcpServer(
       },
     },
     async ({ topic_text, num_prompts, num_ideas, evidence_wait_ms, ideas_wait_ms }) => {
-      const result = await toolService.getContentIdeasForTopic({
+      const result = await toolService.getArticleIdeasForTopic({
         topicText: topic_text,
         numPrompts: num_prompts,
         numIdeas: num_ideas,
@@ -131,23 +129,21 @@ export function createAutorankMcpServer(
           name: result.topicName,
         },
         evidence_summary: {
+          status: inferEvidenceStatus(result),
           prompts_used: result.promptTexts,
           prompts_with_results: result.promptsWithResults,
-          top_competitor_domains: result.topCompetitorDomains,
+          top_cited_domains: result.topCompetitorDomains,
           sample_cited_urls: result.sampleCitedUrls,
-          target_url: result.targetUrl,
-          content_gap_status: result.contentGapStatus,
-          pattern_summary: result.patternSummary,
+          notes: result.patternSummary,
         },
         ideas: result.ideas.map((idea) => ({
           article_id: idea.articleId,
           title: idea.headline,
           content_type: idea.contentType,
           priority: idea.priority,
-          reason: idea.reason,
           why_this_works: idea.whyThisWorks,
-          suggested_outline: idea.suggestedOutline,
           reader_intent_takeaway: idea.readerIntentTakeaway,
+          suggested_outline: idea.suggestedOutline,
           information_gain_slot: idea.informationGainSlot,
           prompt: idea.prompt,
           intent_types: idea.intentTypes,
@@ -155,72 +151,57 @@ export function createAutorankMcpServer(
       };
 
       return {
-        content: [{ type: "text", text: formatContentIdeasResult(structuredContent) }],
+        content: [{ type: "text", text: formatArticleIdeasResult(structuredContent) }],
         structuredContent: asStructuredContent(structuredContent),
       };
     },
   );
 
   server.registerTool(
-    "explain_content_idea",
+    "create_article",
     {
-      title: "Explain content idea",
+      title: "Create article",
       description:
-        "Explain one of the most recently generated content ideas using the stored topic run state.",
+        "Write the selected article idea from the latest get_article_ideas_for_topic run as full markdown.",
       inputSchema: {
-        idea_index: z.number().int().min(1).describe("1-based idea index from the latest get_content_ideas_for_topic call"),
+        idea_index: z.number().int().min(1).describe("1-based idea index from the latest get_article_ideas_for_topic call"),
+        article_length: z.enum(["short", "medium"]).optional(),
+        reader_level: z.enum(["standard", "expert"]).optional(),
+        article_wait_ms: z.number().int().min(30000).max(240000).optional(),
       },
       outputSchema: {
-        idea: z.object({
-          index: z.number(),
-          title: z.string(),
-          content_type: z.string(),
-          priority: z.enum(["high", "medium", "low"]),
-        }),
-        why_this_matters: z.string(),
-        relevant_prompts: z.array(z.string()),
-        competitors_cited: z.array(z.string()),
-        cited_urls: z.array(z.string()),
-        existing_page: z.string().nullable(),
-        recommended_angle: z.string(),
-        proof_notes: z.string().nullable(),
-      },
-    },
-    async ({ idea_index }) => {
-      const result = await toolService.explainIdea(idea_index - 1);
-      return {
-        content: [{ type: "text", text: formatExplainIdeaResult(result) }],
-        structuredContent: asStructuredContent(result),
-      };
-    },
-  );
-
-  server.registerTool(
-    "create_content_brief",
-    {
-      title: "Create content brief",
-      description:
-        "Create a lightweight content brief for one of the most recently generated ideas.",
-      inputSchema: {
-        idea_index: z.number().int().min(1).describe("1-based idea index from the latest get_content_ideas_for_topic call"),
-      },
-      outputSchema: {
+        article_id: z.string(),
         title: z.string(),
-        audience: z.string().nullable(),
-        content_type: z.string(),
-        target_prompts: z.array(z.string()),
-        outline: z.array(z.string()),
-        key_claims: z.array(z.string()),
-        faq: z.array(z.string()),
-        cta: z.string(),
-        metadata_notes: z.array(z.string()),
+        markdown: z.string(),
+        sources: z.array(
+          z.object({
+            name: z.string(),
+            url: z.string(),
+            notes: z.string().nullable(),
+          }),
+        ),
+        job_id: z.string().nullable(),
       },
     },
-    async ({ idea_index }) => {
-      const result = await toolService.createContentBrief(idea_index - 1);
+    async ({ idea_index, article_length, reader_level, article_wait_ms }) => {
+      const result = await toolService.createArticle({
+        ideaIndex: idea_index - 1,
+        articleLength: article_length,
+        readerLevel: reader_level,
+        articleWaitMs: article_wait_ms,
+      });
+
+      const structuredContent = {
+        article_id: result.articleId,
+        title: result.title,
+        markdown: result.markdown,
+        sources: result.sources,
+        job_id: result.jobId,
+      };
+
       return {
-        content: [{ type: "text", text: formatContentBriefResult(result) }],
-        structuredContent: asStructuredContent(result),
+        content: [{ type: "text", text: formatCreateArticleResult(structuredContent) }],
+        structuredContent: asStructuredContent(structuredContent),
       };
     },
   );

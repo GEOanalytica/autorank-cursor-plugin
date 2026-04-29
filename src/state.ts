@@ -14,7 +14,7 @@ export interface StoredIdea {
   contentType: string;
 }
 
-export interface LastTopicRunState {
+export interface LastArticleIdeasRunState {
   topicId: string;
   topicName: string;
   promptTexts: string[];
@@ -29,11 +29,11 @@ export interface LastTopicRunState {
 }
 
 export interface AutorankMcpState {
-  lastTopicRun: LastTopicRunState | null;
+  lastArticleIdeasRun: LastArticleIdeasRunState | null;
 }
 
 export const DEFAULT_MCP_STATE: AutorankMcpState = {
-  lastTopicRun: null,
+  lastArticleIdeasRun: null,
 };
 
 export interface StateStore {
@@ -58,9 +58,12 @@ export class FileStateStore implements StateStore {
   async load(): Promise<AutorankMcpState> {
     try {
       const raw = await readFile(this.filePath, "utf8");
-      const parsed = JSON.parse(raw) as Partial<AutorankMcpState>;
+      const parsed = JSON.parse(raw) as Partial<AutorankMcpState> & {
+        lastTopicRun?: LastArticleIdeasRunState | null;
+      };
       return {
-        lastTopicRun: parsed.lastTopicRun ?? null,
+        lastArticleIdeasRun:
+          parsed.lastArticleIdeasRun ?? parsed.lastTopicRun ?? null,
       };
     } catch (error) {
       const err = error as NodeJS.ErrnoException;
@@ -85,7 +88,7 @@ export class MemoryStateStore implements StateStore {
 
   constructor(initialState: Partial<AutorankMcpState> = {}) {
     this.state = {
-      lastTopicRun: initialState.lastTopicRun ?? null,
+      lastArticleIdeasRun: initialState.lastArticleIdeasRun ?? null,
     };
   }
 

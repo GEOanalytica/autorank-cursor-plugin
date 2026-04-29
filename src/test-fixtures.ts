@@ -1,7 +1,7 @@
-import type { LastTopicRunState } from "./state.js";
-import type { TopicIdeasResult } from "./types.js";
+import type { LastArticleIdeasRunState } from "./state.js";
+import type { ArticleIdeasResult, CreateArticleResult } from "./types.js";
 
-export const fixtureTopicRun: LastTopicRunState = {
+export const fixtureArticleIdeasRun: LastArticleIdeasRunState = {
   topicId: "topic_1",
   topicName: "AI visibility monitoring for startups",
   promptTexts: [
@@ -37,30 +37,52 @@ export const fixtureTopicRun: LastTopicRunState = {
   ],
 };
 
-export const fixtureTopicIdeasResult: TopicIdeasResult = {
-  topicId: fixtureTopicRun.topicId,
-  topicName: fixtureTopicRun.topicName,
-  promptTexts: fixtureTopicRun.promptTexts,
-  promptsWithResults: fixtureTopicRun.promptsWithResults,
-  topCompetitorDomains: fixtureTopicRun.topCompetitorDomains,
-  sampleCitedUrls: fixtureTopicRun.sampleCitedUrls,
-  targetUrl: fixtureTopicRun.targetUrl,
-  contentGapStatus: fixtureTopicRun.contentGapStatus,
-  patternSummary: fixtureTopicRun.patternSummary,
+export const fixtureArticleIdeasResult: ArticleIdeasResult = {
+  topicId: fixtureArticleIdeasRun.topicId,
+  topicName: fixtureArticleIdeasRun.topicName,
+  promptTexts: fixtureArticleIdeasRun.promptTexts,
+  promptsWithResults: fixtureArticleIdeasRun.promptsWithResults,
+  topCompetitorDomains: fixtureArticleIdeasRun.topCompetitorDomains,
+  sampleCitedUrls: fixtureArticleIdeasRun.sampleCitedUrls,
+  targetUrl: fixtureArticleIdeasRun.targetUrl,
+  contentGapStatus: fixtureArticleIdeasRun.contentGapStatus,
+  patternSummary: fixtureArticleIdeasRun.patternSummary,
   sessionId: "session_1",
   ideas: [
     {
-      articleId: fixtureTopicRun.ideas[0].articleId,
-      headline: fixtureTopicRun.ideas[0].headline,
-      contentType: fixtureTopicRun.ideas[0].contentType,
+      articleId: fixtureArticleIdeasRun.ideas[0].articleId,
+      headline: fixtureArticleIdeasRun.ideas[0].headline,
+      contentType: fixtureArticleIdeasRun.ideas[0].contentType,
       priority: "high",
       reason: "Competitors win citations with startup-specific pages.",
-      whyThisWorks: fixtureTopicRun.ideas[0].whyThisWorks,
-      suggestedOutline: fixtureTopicRun.ideas[0].suggestedOutline,
-      readerIntentTakeaway: fixtureTopicRun.ideas[0].readerIntentTakeaway,
-      informationGainSlot: fixtureTopicRun.ideas[0].informationGainSlot,
-      prompt: fixtureTopicRun.ideas[0].prompt,
-      intentTypes: fixtureTopicRun.ideas[0].intentTypes,
+      whyThisWorks: fixtureArticleIdeasRun.ideas[0].whyThisWorks,
+      suggestedOutline: fixtureArticleIdeasRun.ideas[0].suggestedOutline,
+      readerIntentTakeaway: fixtureArticleIdeasRun.ideas[0].readerIntentTakeaway,
+      informationGainSlot: fixtureArticleIdeasRun.ideas[0].informationGainSlot,
+      prompt: fixtureArticleIdeasRun.ideas[0].prompt,
+      intentTypes: fixtureArticleIdeasRun.ideas[0].intentTypes,
     },
   ],
+};
+
+export const fixtureCreateArticleResult: CreateArticleResult = {
+  articleId: "draft_1",
+  title: "AI visibility monitoring for startups",
+  markdown: [
+    "# AI visibility monitoring for startups",
+    "",
+    "AI visibility monitoring helps founders understand whether AI engines mention their company when buyers ask category questions.",
+    "",
+    "## The first 10 prompts to monitor",
+    "",
+    "Start with the questions your buyer asks before they know your brand.",
+  ].join("\n"),
+  sources: [
+    {
+      name: "competitor-a.com",
+      url: "https://competitor-a.com/startups",
+      notes: "Citation evidence",
+    },
+  ],
+  jobId: "job_1",
 };

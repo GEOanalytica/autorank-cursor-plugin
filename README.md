@@ -1,17 +1,15 @@
 # AutoRank Cursor Plugin
 
-AutoRank Content Ideas is a thin Cursor/MCP wrapper for generating content ideas and briefs backed by AutoRank AI-search citation evidence.
+AutoRank helps Cursor users turn a business topic into article ideas, then write the selected idea as a full markdown draft without leaving the IDE.
 
-This public repo intentionally contains only Cursor-facing glue:
+This public repository intentionally contains only Cursor-facing glue:
 
 - Cursor plugin manifest
 - Cursor skill instructions
 - stdio MCP wrapper
-- formatting and local latest-run state
+- response formatting and latest-run state
 
-The private AutoRank platform owns authentication, entitlements, domain scoping, scraping, citation analysis, and content-idea orchestration.
-
-If the plugin is installed without AutoRank credentials, it starts in clearly-labelled demo mode so reviewers can inspect the tool flow without access to customer data. Live results require a scoped AutoRank MCP key.
+The private AutoRank platform owns authentication, entitlements, domain scoping, scraping, citation analysis, article ideas, and article generation.
 
 ## Cursor Marketplace Repository
 
@@ -23,6 +21,22 @@ https://github.com/GEOanalytica/autorank-cursor-plugin
 
 Do not submit the private AutoRank app repository.
 
+## What The Plugin Does
+
+The reviewer flow is:
+
+1. Ask Cursor for article ideas about a topic, for example `Give me article ideas about jacuzzi maintenance`.
+2. AutoRank returns 1 to 5 article ideas with reader intent, takeaway, outline, why the idea works, and evidence notes.
+3. Ask Cursor to write one selected idea, for example `Create article 1`.
+4. AutoRank returns a complete markdown article draft and source metadata.
+
+The public MCP surface is intentionally small:
+
+- `get_article_ideas_for_topic`
+- `create_article`
+
+No signup, OTP, workspace setup, Supabase token, or debug-token tools are exposed.
+
 ## Requirements
 
 - Node.js 20+
@@ -30,7 +44,7 @@ Do not submit the private AutoRank app repository.
 - AutoRank domain ID
 - AutoRank API base URL
 
-Without these values, the MCP server still starts and returns demo data. Demo responses are labelled as demo evidence and are not live AutoRank results.
+Without these values, the MCP server still starts in labelled demo mode so reviewers can inspect the UX without customer data. Live results require a scoped AutoRank MCP key.
 
 ## Configure
 
@@ -49,9 +63,7 @@ POST $AUTORANK_API_BASE_URL/mcp-content-ideas
 Authorization: Bearer $AUTORANK_API_KEY
 ```
 
-The key must be scoped to the requested domain.
-
-To force demo mode even when other environment variables are present:
+The key must be scoped to the requested domain. To force demo mode even when other environment variables are present:
 
 ```bash
 export AUTORANK_DEMO_MODE=1
@@ -61,49 +73,11 @@ export AUTORANK_DEMO_MODE=1
 
 ```bash
 npm install
-npm run build
+npm run type-check
 npm test
 npm run test:e2e
 npm start
 ```
-
-## Risk Mitigation
-
-This plugin is isolated from the core AutoRank app. The public repository contains only Cursor-facing glue and calls a small backend API contract owned by AutoRank.
-
-Cursor UX is owned here, not in the core app. Iterating on tool names, skill instructions, response formatting, setup docs, and stdio behavior should happen in this repository.
-
-Release gates before marketplace submission:
-
-1. Unit tests pass: `npm test`
-2. Stdio e2e passes: `npm run test:e2e`, including reviewer demo mode with no credentials
-3. Public install smoke passes: `npx -y github:GEOanalytica/autorank-cursor-plugin`
-4. Live e2e passes against Preview first, then an internal production domain and scoped MCP key: `npm run test:live`
-5. No core product UI or app bundle changes are required for plugin UX iteration
-
-The e2e test starts the compiled MCP server the same way Cursor does, sends it through a mock AutoRank API, verifies the `Authorization` and `domain_id` contract, exercises the ideas -> explain -> brief flow, and checks that secrets are not written into local state or tool responses.
-
-The live smoke uses the same compiled stdio server against a real deployed AutoRank API. It is opt-in and can point at Supabase Preview or production:
-
-```bash
-export AUTORANK_API_KEY="amcp_..."
-export AUTORANK_DOMAIN_ID="..."
-export AUTORANK_API_BASE_URL="https://<project-ref>.supabase.co/functions/v1"
-export AUTORANK_E2E_TOPIC="AI search monitoring for B2B SaaS"
-npm run test:live
-```
-
-## Manual UX Smoke
-
-After backend deployment, run one internal Cursor session before marketplace submission:
-
-1. Set `AUTORANK_API_KEY`, `AUTORANK_DOMAIN_ID`, and `AUTORANK_API_BASE_URL`.
-2. Start a fresh Cursor agent session with this plugin enabled.
-3. Ask: `Give me content ideas for AI search monitoring for B2B SaaS`.
-4. Confirm the agent returns a short ranked list, evidence summary, and a clear next step.
-5. Ask it to explain the strongest idea.
-6. Ask it to create a brief.
-7. Confirm no secrets, setup tokens, raw Supabase errors, or irrelevant product internals appear in the transcript.
 
 ## Local Cursor Setup
 
@@ -136,25 +110,58 @@ Cursor can use `.cursor/mcp.json` for a project-level config or `~/.cursor/mcp.j
 
 The marketplace `mcp.json` uses `npx -y github:GEOanalytica/autorank-cursor-plugin`, so it can run from the public GitHub repo without publishing a public npm package.
 
+## Reviewer Smoke
+
+With live Preview or production credentials set:
+
+```bash
+export AUTORANK_API_KEY="amcp_..."
+export AUTORANK_DOMAIN_ID="..."
+export AUTORANK_API_BASE_URL="https://<project-ref>.supabase.co/functions/v1"
+export AUTORANK_E2E_TOPIC="pool cleaning"
+npm run test:live
+```
+
+Manual Cursor check:
+
+1. Enable the plugin.
+2. Ask: `Give me article ideas about pool cleaning`.
+3. Confirm Cursor shows ranked ideas with reader intent, why each idea works, and evidence notes.
+4. Ask: `Create article 1`.
+5. Confirm Cursor returns full markdown for the article and does not show API keys, Supabase tokens, OTP codes, or setup internals.
+
 ## Tools
 
-### `get_content_ideas_for_topic`
+### `get_article_ideas_for_topic`
 
-Generates prompts, gathers citation evidence through AutoRank, and returns compact content ideas.
+Turns a business topic into article ideas. Live mode uses AutoRank domain context and AI-search evidence when available. Demo mode returns clearly labelled sample evidence.
 
-### `explain_content_idea`
+Inputs:
 
-Explains one idea from the latest run with cited prompts, competitors, URLs, and existing-page status.
+- `topic_text`: topic to explore
+- `num_prompts`: optional, 3 to 5
+- `num_ideas`: optional, 1 to 5
+- `evidence_wait_ms`: optional live evidence wait budget
+- `ideas_wait_ms`: optional article-idea wait budget
 
-### `create_content_brief`
+### `create_article`
 
-Creates a lightweight brief from one idea in the latest run.
+Writes the selected idea from the latest `get_article_ideas_for_topic` run as full markdown.
+
+Inputs:
+
+- `idea_index`: 1-based idea number from the latest ideas run
+- `article_length`: optional, `short` or `medium`
+- `reader_level`: optional, `standard` or `expert`
+- `article_wait_ms`: optional article writer wait budget
 
 ## Security Boundary
 
-The wrapper does not store or expose Supabase access tokens, refresh tokens, service-role keys, signup session IDs, or OTP codes.
+The wrapper does not store or expose Supabase access tokens, refresh tokens, service-role keys, signup session IDs, OTP codes, or AutoRank API keys.
 
-Local state is limited to the latest topic run and is written to:
+Local state is limited to the latest article-ideas run so `create_article` can reference the selected idea. Full article markdown is returned to Cursor but is not persisted locally.
+
+Local state is written to:
 
 ```text
 ~/.config/autorank-mcp/state.json
@@ -165,3 +172,16 @@ Override this during tests or local development with:
 ```bash
 export AUTORANK_MCP_STATE_PATH="/tmp/autorank-mcp-state.json"
 ```
+
+## Risk Mitigation
+
+This plugin is isolated from the core AutoRank app. The public repository contains only Cursor-facing glue and calls one small backend API contract owned by AutoRank.
+
+Release gates:
+
+1. Unit tests pass: `npm test`
+2. Stdio e2e passes: `npm run test:e2e`
+3. Public install demo smoke passes: `npx -y github:GEOanalytica/autorank-cursor-plugin`
+4. Live e2e passes against Preview or production: `npm run test:live`
+5. Tool list exposes only `get_article_ideas_for_topic` and `create_article`
+6. No secrets or full markdown are written to local state

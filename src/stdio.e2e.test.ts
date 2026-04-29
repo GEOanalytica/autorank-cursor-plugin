@@ -5,9 +5,12 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { fixtureTopicIdeasResult } from "./test-fixtures.js";
+import {
+  fixtureArticleIdeasResult,
+  fixtureCreateArticleResult,
+} from "./test-fixtures.js";
 
 interface RecordedRequest {
   method: string | undefined;
@@ -44,15 +47,20 @@ describe("Cursor stdio e2e", () => {
       }
 
       const rawBody = await readRequestBody(req);
+      const body = JSON.parse(rawBody) as Record<string, unknown>;
       requests.push({
         method: req.method,
         url: req.url,
         authorization: req.headers.authorization,
-        body: JSON.parse(rawBody) as Record<string, unknown>,
+        body,
       });
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(fixtureTopicIdeasResult));
+      res.end(JSON.stringify(
+        body.action === "create_article"
+          ? fixtureCreateArticleResult
+          : fixtureArticleIdeasResult,
+      ));
     });
 
     await new Promise<void>((resolve) => {
@@ -60,6 +68,10 @@ describe("Cursor stdio e2e", () => {
     });
     const address = server.address() as AddressInfo;
     apiBaseUrl = `http://127.0.0.1:${address.port}`;
+  });
+
+  beforeEach(() => {
+    requests.length = 0;
   });
 
   afterAll(async () => {
@@ -72,7 +84,7 @@ describe("Cursor stdio e2e", () => {
     await rm(stateDir, { recursive: true, force: true });
   });
 
-  it("runs the compiled MCP server through the Cursor-facing stdio path", async () => {
+  it("runs ideas to full article through the Cursor-facing stdio path", async () => {
     const statePath = join(stateDir, "state.json");
     const transport = new StdioClientTransport({
       command: process.execPath,
@@ -95,14 +107,13 @@ describe("Cursor stdio e2e", () => {
     try {
       const tools = await client.listTools();
       expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
-        "create_content_brief",
-        "explain_content_idea",
-        "get_content_ideas_for_topic",
+        "create_article",
+        "get_article_ideas_for_topic",
       ]);
       expect(JSON.stringify(tools.tools)).not.toMatch(/setup|otp|workspace|token|supabase/i);
 
       const ideasResult = await client.callTool({
-        name: "get_content_ideas_for_topic",
+        name: "get_article_ideas_for_topic",
         arguments: {
           topic_text: "AI visibility monitoring for startups",
           num_prompts: 3,
@@ -119,7 +130,7 @@ describe("Cursor stdio e2e", () => {
         authorization: "Bearer amcp_e2e_secret",
         body: {
           domain_id: "domain_e2e",
-          action: "get_content_ideas_for_topic",
+          action: "get_article_ideas_for_topic",
           topic_text: "AI visibility monitoring for startups",
           num_prompts: 3,
           num_ideas: 1,
@@ -130,23 +141,37 @@ describe("Cursor stdio e2e", () => {
       expect(JSON.stringify(ideasResult.structuredContent)).toContain("AI visibility monitoring for startups");
       expect(JSON.stringify(ideasResult.structuredContent)).toContain("competitor-a.com");
 
-      const explainResult = await client.callTool({
-        name: "explain_content_idea",
-        arguments: { idea_index: 1 },
+      const articleResult = await client.callTool({
+        name: "create_article",
+        arguments: {
+          idea_index: 1,
+          article_length: "short",
+          reader_level: "standard",
+          article_wait_ms: 60000,
+        },
       });
-      expect(JSON.stringify(explainResult.structuredContent)).toContain("Competitors have startup-specific pages");
-      expect(JSON.stringify(explainResult.structuredContent)).toContain("https://example.com/product");
 
-      const briefResult = await client.callTool({
-        name: "create_content_brief",
-        arguments: { idea_index: 1 },
+      expect(requests).toHaveLength(2);
+      expect(requests[1]).toMatchObject({
+        method: "POST",
+        url: "/mcp-content-ideas",
+        authorization: "Bearer amcp_e2e_secret",
+        body: {
+          domain_id: "domain_e2e",
+          action: "create_article",
+          topic_name: "AI visibility monitoring for startups",
+          article_length: "short",
+          reader_level: "standard",
+          article_wait_ms: 60000,
+        },
       });
-      expect(JSON.stringify(briefResult.structuredContent)).toContain("The first 10 prompts to monitor");
-      expect(JSON.stringify(briefResult.structuredContent)).not.toContain("amcp_e2e_secret");
+      expect(JSON.stringify(articleResult.structuredContent)).toContain("# AI visibility monitoring for startups");
+      expect(JSON.stringify(articleResult.structuredContent)).not.toContain("amcp_e2e_secret");
 
       const persistedState = await readFile(statePath, "utf8");
       expect(persistedState).toContain("AI visibility monitoring for startups");
       expect(persistedState).not.toContain("amcp_e2e_secret");
+      expect(persistedState).not.toContain(fixtureCreateArticleResult.markdown);
       expect(persistedState).not.toMatch(/refresh_token|access_token|service_role/i);
     } finally {
       await client.close();
@@ -174,36 +199,30 @@ describe("Cursor stdio e2e", () => {
     try {
       const tools = await client.listTools();
       expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
-        "create_content_brief",
-        "explain_content_idea",
-        "get_content_ideas_for_topic",
+        "create_article",
+        "get_article_ideas_for_topic",
       ]);
 
       const ideasResult = await client.callTool({
-        name: "get_content_ideas_for_topic",
+        name: "get_article_ideas_for_topic",
         arguments: {
-          topic_text: "AI search monitoring for B2B SaaS",
+          topic_text: "jacuzzi maintenance",
           num_ideas: 1,
         },
       });
       expect(JSON.stringify(ideasResult.structuredContent)).toContain("Demo mode");
-      expect(JSON.stringify(ideasResult.structuredContent)).toContain("AI search monitoring for B2B SaaS");
+      expect(JSON.stringify(ideasResult.structuredContent)).toContain("jacuzzi maintenance");
 
-      const explainResult = await client.callTool({
-        name: "explain_content_idea",
+      const articleResult = await client.callTool({
+        name: "create_article",
         arguments: { idea_index: 1 },
       });
-      expect(JSON.stringify(explainResult.structuredContent)).toContain("configure AUTORANK_API_KEY");
-
-      const briefResult = await client.callTool({
-        name: "create_content_brief",
-        arguments: { idea_index: 1 },
-      });
-      expect(JSON.stringify(briefResult.structuredContent)).toContain("sample evidence");
+      expect(JSON.stringify(articleResult.structuredContent)).toContain("# jacuzzi maintenance");
 
       const persistedState = await readFile(statePath, "utf8");
-      expect(persistedState).toContain("Demo mode");
+      expect(persistedState).toContain("jacuzzi maintenance");
       expect(persistedState).not.toMatch(/refresh_token|access_token|service_role|amcp_/i);
+      expect(persistedState).not.toContain("## References");
     } finally {
       await client.close();
     }
@@ -231,7 +250,7 @@ describe("Cursor stdio e2e", () => {
 
     try {
       const ideasResult = await client.callTool({
-        name: "get_content_ideas_for_topic",
+        name: "get_article_ideas_for_topic",
         arguments: {
           topic_text: "AI search monitoring for B2B SaaS",
           num_ideas: 1,

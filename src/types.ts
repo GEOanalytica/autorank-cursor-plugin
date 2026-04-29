@@ -12,7 +12,7 @@ export interface IdeaCard {
   intentTypes: string[];
 }
 
-export interface TopicIdeasResult {
+export interface ArticleIdeasResult {
   topicId: string;
   topicName: string;
   promptTexts: string[];
@@ -26,59 +26,53 @@ export interface TopicIdeasResult {
   ideas: IdeaCard[];
 }
 
-export interface ContentIdeaToolResult {
+export interface ArticleIdeasToolResult {
   topic: {
     id: string;
     name: string;
   };
   evidence_summary: {
+    status: "live" | "cached" | "fallback";
     prompts_used: string[];
     prompts_with_results: number;
-    top_competitor_domains: string[];
+    top_cited_domains: string[];
     sample_cited_urls: string[];
-    target_url: string | null;
-    content_gap_status: "gap" | "partial" | null;
-    pattern_summary: string | null;
+    notes: string | null;
   };
   ideas: Array<{
     article_id: string | null;
     title: string;
     content_type: string;
     priority: "high" | "medium" | "low";
-    reason: string;
     why_this_works: string;
-    suggested_outline: string[];
     reader_intent_takeaway: string | null;
+    suggested_outline: string[];
     information_gain_slot: string | null;
     prompt: string | null;
     intent_types: string[];
   }>;
 }
 
-export interface ExplainIdeaToolResult {
-  idea: {
-    index: number;
-    title: string;
-    content_type: string;
-    priority: "high" | "medium" | "low";
-  };
-  why_this_matters: string;
-  relevant_prompts: string[];
-  competitors_cited: string[];
-  cited_urls: string[];
-  existing_page: string | null;
-  recommended_angle: string;
-  proof_notes: string | null;
+export interface CreateArticleResult {
+  articleId: string;
+  title: string;
+  markdown: string;
+  sources: Array<{
+    name: string;
+    url: string;
+    notes: string | null;
+  }>;
+  jobId: string | null;
 }
 
-export interface ContentBriefToolResult {
+export interface CreateArticleToolResult {
+  article_id: string;
   title: string;
-  audience: string | null;
-  content_type: string;
-  target_prompts: string[];
-  outline: string[];
-  key_claims: string[];
-  faq: string[];
-  cta: string;
-  metadata_notes: string[];
+  markdown: string;
+  sources: Array<{
+    name: string;
+    url: string;
+    notes: string | null;
+  }>;
+  job_id: string | null;
 }

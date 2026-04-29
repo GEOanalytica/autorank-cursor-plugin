@@ -1,17 +1,22 @@
 import { loadAutorankEnv, type AutorankEnv } from "./env.js";
 import {
-  type LastTopicRunState,
+  type LastArticleIdeasRunState,
   type StateStore,
   type StoredIdea,
 } from "./state.js";
 import type {
-  ContentBriefToolResult,
-  ExplainIdeaToolResult,
+  ArticleIdeasResult,
+  CreateArticleResult,
   IdeaCard,
-  TopicIdeasResult,
 } from "./types.js";
 
-type ContentIdeasApiResponse = TopicIdeasResult & {
+type ArticleIdeasApiResponse = ArticleIdeasResult & {
+  error?: string;
+};
+
+type CreateArticleApiResponse = CreateArticleResult & {
+  article_id?: string;
+  job_id?: string | null;
   error?: string;
 };
 
@@ -67,19 +72,6 @@ export function compactWhyThisWorks(whyThisWorks: string): string {
   return lines[0] ?? whyThisWorks.trim();
 }
 
-function uniqueStrings(values: string[], limit?: number): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    const trimmed = value.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    result.push(trimmed);
-    if (typeof limit === "number" && result.length >= limit) break;
-  }
-  return result;
-}
-
 function ideaCardToStoredIdea(idea: IdeaCard): StoredIdea {
   return {
     articleId: idea.articleId,
@@ -92,6 +84,45 @@ function ideaCardToStoredIdea(idea: IdeaCard): StoredIdea {
     intentTypes: idea.intentTypes,
     contentType: idea.contentType,
   };
+}
+
+function storedIdeaToApiIdea(
+  idea: StoredIdea,
+  run: LastArticleIdeasRunState,
+): Record<string, unknown> {
+  const citationSources = run.sampleCitedUrls.flatMap((url) => {
+    try {
+      return [{
+        name: new URL(url).hostname.replace(/^www\./, ""),
+        url,
+        notes: "AI-search citation evidence",
+      }];
+    } catch {
+      return [];
+    }
+  });
+
+  return {
+    article_id: idea.articleId,
+    headline: idea.headline,
+    content_type: idea.contentType,
+    why_this_works: idea.whyThisWorks,
+    suggested_outline: idea.suggestedOutline,
+    reader_intent_takeaway: idea.readerIntentTakeaway,
+    information_gain_slot: idea.informationGainSlot,
+    prompt: idea.prompt,
+    intent_types: idea.intentTypes,
+    citation_urls: run.sampleCitedUrls,
+    sources: citationSources,
+  };
+}
+
+export function inferEvidenceStatus(result: ArticleIdeasResult): "live" | "cached" | "fallback" {
+  const summary = result.patternSummary?.toLowerCase() ?? "";
+  if (summary.includes("fallback") || result.promptsWithResults === 0) {
+    return "fallback";
+  }
+  return "live";
 }
 
 export class AutorankMcpService {
@@ -140,15 +171,15 @@ export class AutorankMcpService {
     return payload as TResponse;
   }
 
-  async getContentIdeasForTopic(input: {
+  async getArticleIdeasForTopic(input: {
     topicText: string;
     numPrompts?: number;
     numIdeas?: number;
     evidenceWaitMs?: number;
     ideasWaitMs?: number;
-  }): Promise<TopicIdeasResult> {
-    const result = await this.invokeContentIdeasApi<ContentIdeasApiResponse>({
-      action: "get_content_ideas_for_topic",
+  }): Promise<ArticleIdeasResult> {
+    const result = await this.invokeContentIdeasApi<ArticleIdeasApiResponse>({
+      action: "get_article_ideas_for_topic",
       topic_text: input.topicText,
       num_prompts: input.numPrompts,
       num_ideas: input.numIdeas,
@@ -160,7 +191,7 @@ export class AutorankMcpService {
       throw new Error(result.error);
     }
 
-    const runState: LastTopicRunState = {
+    const runState: LastArticleIdeasRunState = {
       topicId: result.topicId,
       topicName: result.topicName,
       promptTexts: result.promptTexts,
@@ -177,79 +208,48 @@ export class AutorankMcpService {
     const current = await this.stateStore.load();
     await this.stateStore.save({
       ...current,
-      lastTopicRun: runState,
+      lastArticleIdeasRun: runState,
     });
 
     return result;
   }
 
-  async explainIdea(index: number): Promise<ExplainIdeaToolResult> {
+  async createArticle(input: {
+    ideaIndex: number;
+    articleLength?: "short" | "medium";
+    readerLevel?: "standard" | "expert";
+    articleWaitMs?: number;
+  }): Promise<CreateArticleResult> {
     const state = await this.stateStore.load();
-    const run = state.lastTopicRun;
+    const run = state.lastArticleIdeasRun;
     if (!run) {
-      throw new Error("No topic idea run found. Generate content ideas first.");
+      throw new Error("No article idea run found. Generate article ideas first.");
     }
 
-    const idea = run.ideas[index];
+    const idea = run.ideas[input.ideaIndex];
     if (!idea) {
-      throw new Error(`Idea ${index + 1} does not exist.`);
+      throw new Error(`Idea ${input.ideaIndex + 1} does not exist.`);
+    }
+
+    const result = await this.invokeContentIdeasApi<CreateArticleApiResponse>({
+      action: "create_article",
+      topic_name: run.topicName,
+      idea: storedIdeaToApiIdea(idea, run),
+      article_length: input.articleLength ?? "short",
+      reader_level: input.readerLevel ?? "standard",
+      article_wait_ms: input.articleWaitMs,
+    });
+
+    if (result.error) {
+      throw new Error(result.error);
     }
 
     return {
-      idea: {
-        index: index + 1,
-        title: idea.headline,
-        content_type: idea.contentType,
-        priority: inferPriority({
-          whyThisWorks: idea.whyThisWorks,
-          contentGapStatus: run.contentGapStatus,
-        }),
-      },
-      why_this_matters: idea.whyThisWorks,
-      relevant_prompts: run.promptTexts,
-      competitors_cited: run.topCompetitorDomains,
-      cited_urls: run.sampleCitedUrls,
-      existing_page: run.targetUrl,
-      recommended_angle:
-        idea.informationGainSlot ??
-        compactWhyThisWorks(idea.whyThisWorks),
-      proof_notes: run.patternSummary,
-    };
-  }
-
-  async createContentBrief(index: number): Promise<ContentBriefToolResult> {
-    const state = await this.stateStore.load();
-    const run = state.lastTopicRun;
-    if (!run) {
-      throw new Error("No topic idea run found. Generate content ideas first.");
-    }
-
-    const idea = run.ideas[index];
-    if (!idea) {
-      throw new Error(`Idea ${index + 1} does not exist.`);
-    }
-
-    const whyLines = idea.whyThisWorks
-      .split(/\r?\n/)
-      .map((line) => line.replace(/^- /, "").trim())
-      .filter(Boolean);
-
-    return {
-      title: idea.headline,
-      audience: idea.readerIntentTakeaway,
-      content_type: idea.contentType,
-      target_prompts: run.promptTexts,
-      outline: idea.suggestedOutline,
-      key_claims: whyLines,
-      faq: [],
-      cta: "Start free with 10 prompts",
-      metadata_notes: uniqueStrings(
-        [
-          run.targetUrl ? `Existing related page: ${run.targetUrl}` : "No existing page found",
-          run.patternSummary ?? "",
-          run.contentGapStatus ? `Content gap status: ${run.contentGapStatus}` : "",
-        ].filter(Boolean),
-      ),
+      articleId: result.articleId ?? result.article_id ?? "",
+      title: result.title,
+      markdown: result.markdown,
+      sources: result.sources ?? [],
+      jobId: result.jobId ?? result.job_id ?? null,
     };
   }
 }

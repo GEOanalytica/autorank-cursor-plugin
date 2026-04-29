@@ -1,7 +1,6 @@
 import type {
-  ContentBriefToolResult,
-  ContentIdeaToolResult,
-  ExplainIdeaToolResult,
+  ArticleIdeasToolResult,
+  CreateArticleToolResult,
 } from "./types.js";
 
 function renderBulletList(items: string[], prefix = "- "): string {
@@ -9,87 +8,52 @@ function renderBulletList(items: string[], prefix = "- "): string {
   return items.map((item) => `${prefix}${item}`).join("\n");
 }
 
-export function formatContentIdeasResult(result: ContentIdeaToolResult): string {
+export function formatArticleIdeasResult(result: ArticleIdeasToolResult): string {
   const ideas = result.ideas
     .map((idea, index) => {
       return [
         `${index + 1}. ${idea.title}`,
         `   Type: ${idea.content_type}`,
-        `   Priority: ${idea.priority}`,
-        `   Reason: ${idea.reason}`,
+        `   Reader intent: ${idea.reader_intent_takeaway ?? "Not specified"}`,
+        `   Why this works: ${idea.why_this_works}`,
       ].join("\n");
     })
-    .join("\n");
+    .join("\n\n");
 
   return [
     `Topic: ${result.topic.name}`,
-    `Prompts used: ${result.evidence_summary.prompts_used.length}`,
+    `Evidence status: ${result.evidence_summary.status}`,
+    `Prompts checked: ${result.evidence_summary.prompts_used.length}`,
     `Prompts with results: ${result.evidence_summary.prompts_with_results}`,
-    `Content gap status: ${result.evidence_summary.content_gap_status ?? "unknown"}`,
-    result.evidence_summary.target_url
-      ? `Existing page: ${result.evidence_summary.target_url}`
-      : "Existing page: none found",
+    result.evidence_summary.notes ? `Notes: ${result.evidence_summary.notes}` : null,
     "",
-    "Ideas:",
+    "Article ideas:",
     ideas || "No ideas returned.",
     "",
-    "Top competitor domains:",
-    renderBulletList(result.evidence_summary.top_competitor_domains),
+    "Top cited domains:",
+    renderBulletList(result.evidence_summary.top_cited_domains),
     "",
     "Sample cited URLs:",
     renderBulletList(result.evidence_summary.sample_cited_urls),
-  ].join("\n");
-}
-
-export function formatExplainIdeaResult(result: ExplainIdeaToolResult): string {
-  return [
-    `Idea: ${result.idea.title}`,
-    `Content type: ${result.idea.content_type}`,
-    `Priority: ${result.idea.priority}`,
     "",
-    "Why this matters:",
-    result.why_this_matters,
-    "",
-    "Relevant prompts:",
-    renderBulletList(result.relevant_prompts),
-    "",
-    "Competitors cited:",
-    renderBulletList(result.competitors_cited),
-    "",
-    "Cited URLs:",
-    renderBulletList(result.cited_urls),
-    "",
-    `Existing page: ${result.existing_page ?? "none found"}`,
-    "",
-    `Recommended angle: ${result.recommended_angle}`,
-    result.proof_notes ? `Proof notes: ${result.proof_notes}` : null,
+    "Next step: ask AutoRank to create article 1, 2, or 3.",
   ]
-    .filter((value): value is string => Boolean(value))
+    .filter((value): value is string => value !== null)
     .join("\n");
 }
 
-export function formatContentBriefResult(result: ContentBriefToolResult): string {
+export function formatCreateArticleResult(result: CreateArticleToolResult): string {
   return [
-    `Title: ${result.title}`,
-    `Content type: ${result.content_type}`,
-    result.audience ? `Audience: ${result.audience}` : null,
+    `Article: ${result.title}`,
+    `AutoRank article ID: ${result.article_id}`,
+    result.job_id ? `Writer job ID: ${result.job_id}` : null,
     "",
-    "Target prompts:",
-    renderBulletList(result.target_prompts),
-    "",
-    "Outline:",
-    renderBulletList(result.outline),
-    "",
-    "Key claims:",
-    renderBulletList(result.key_claims),
-    result.faq.length > 0 ? "\nFAQ:" : null,
-    result.faq.length > 0 ? renderBulletList(result.faq) : null,
-    "",
-    `CTA: ${result.cta}`,
-    "",
-    "Notes:",
-    renderBulletList(result.metadata_notes),
+    result.markdown,
+    result.sources.length > 0 ? "\nSources:" : null,
+    result.sources.length > 0
+      ? renderBulletList(result.sources.map((source) => `${source.name}: ${source.url}`))
+      : null,
   ]
-    .filter((value): value is string => Boolean(value))
+    .filter((value): value is string => value !== null)
     .join("\n");
 }

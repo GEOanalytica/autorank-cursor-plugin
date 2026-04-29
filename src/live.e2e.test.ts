@@ -27,7 +27,7 @@ describeProd("AutoRank live MCP smoke", () => {
     }
   });
 
-  it("generates, explains, and briefs one idea against the configured AutoRank API", async () => {
+  it("generates article ideas and writes full markdown against the configured AutoRank API", async () => {
     const apiKey = requireEnv("AUTORANK_API_KEY");
     const domainId = requireEnv("AUTORANK_DOMAIN_ID");
     const apiBaseUrl = requireEnv("AUTORANK_API_BASE_URL");
@@ -58,14 +58,14 @@ describeProd("AutoRank live MCP smoke", () => {
     try {
       const tools = await client.listTools(undefined, { timeout: 30000 });
       expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
-        "create_content_brief",
-        "explain_content_idea",
-        "get_content_ideas_for_topic",
+        "create_article",
+        "get_article_ideas_for_topic",
       ]);
+      expect(JSON.stringify(tools.tools)).not.toMatch(/setup|otp|workspace|token|supabase/i);
 
       const ideasResult = await client.callTool(
         {
-          name: "get_content_ideas_for_topic",
+          name: "get_article_ideas_for_topic",
           arguments: {
             topic_text: topic,
             num_prompts: 3,
@@ -84,29 +84,33 @@ describeProd("AutoRank live MCP smoke", () => {
       const ideasPayload = JSON.stringify(ideasResult.structuredContent);
       expect(ideasPayload).toContain(topic.split(/\s+/)[0]);
       expect(ideasPayload).not.toContain(apiKey);
+      expect(ideasPayload).not.toMatch(/refresh_token|access_token|service_role/i);
 
-      const explainResult = await client.callTool(
+      const articleResult = await client.callTool(
         {
-          name: "explain_content_idea",
-          arguments: { idea_index: 1 },
+          name: "create_article",
+          arguments: {
+            idea_index: 1,
+            article_length: "short",
+            reader_level: "standard",
+            article_wait_ms: 210000,
+          },
         },
         undefined,
-        { timeout: 30000 },
-      );
-      expect(JSON.stringify(explainResult.structuredContent)).not.toContain(apiKey);
-
-      const briefResult = await client.callTool(
         {
-          name: "create_content_brief",
-          arguments: { idea_index: 1 },
+          timeout: requestTimeoutMs,
+          maxTotalTimeout: requestTimeoutMs,
         },
-        undefined,
-        { timeout: 30000 },
       );
-      expect(JSON.stringify(briefResult.structuredContent)).not.toContain(apiKey);
+
+      const articlePayload = JSON.stringify(articleResult.structuredContent);
+      expect(articlePayload).toContain("#");
+      expect(articlePayload).not.toContain(apiKey);
+      expect(articlePayload).not.toMatch(/refresh_token|access_token|service_role/i);
 
       const persistedState = await readFile(statePath, "utf8");
       expect(persistedState).not.toContain(apiKey);
+      expect(persistedState).not.toContain("#");
       expect(persistedState).not.toMatch(/refresh_token|access_token|service_role/i);
     } finally {
       await client.close();

@@ -3,22 +3,21 @@ import {
   inferPriority,
 } from "./service.js";
 import type {
-  LastTopicRunState,
+  LastArticleIdeasRunState,
   StateStore,
   StoredIdea,
 } from "./state.js";
 import type {
-  ContentBriefToolResult,
-  ExplainIdeaToolResult,
-  TopicIdeasResult,
+  ArticleIdeasResult,
+  CreateArticleResult,
 } from "./types.js";
 
 function demoPrompts(topic: string): string[] {
   const normalizedTopic = topic.trim();
   return [
-    `what is the best ${normalizedTopic} solution for B2B teams`,
-    `how should a company measure ${normalizedTopic} in ChatGPT and Perplexity`,
-    `${normalizedTopic} checklist before launching a content program`,
+    `what should customers know before choosing ${normalizedTopic}`,
+    `${normalizedTopic} checklist for busy teams`,
+    `common mistakes with ${normalizedTopic}`,
   ];
 }
 
@@ -26,41 +25,41 @@ function demoIdeas(topic: string, limit: number): StoredIdea[] {
   const ideas: StoredIdea[] = [
     {
       articleId: null,
-      headline: `${topic}: the practical buyer's checklist`,
+      headline: `${topic}: the practical customer's checklist`,
       whyThisWorks:
-        "Demo mode: checklist-style pages are a strong fit when AI answers need selection criteria, implementation steps, and proof points in one place.",
+        "Demo mode: checklist-style articles are a strong fit when readers need fast criteria, concrete steps, and enough confidence to act.",
       suggestedOutline: [
-        "Define the buying trigger",
-        "List the core evaluation criteria",
-        "Show an implementation workflow",
-        "Add proof points and common objections",
+        "Define the problem in plain language",
+        "List the decision criteria customers should use",
+        "Show the step-by-step checklist",
+        "Explain mistakes to avoid",
       ],
       readerIntentTakeaway:
-        "A buyer understands what to evaluate and why the category matters.",
+        "The reader understands what to check, what to avoid, and what to do next.",
       informationGainSlot:
-        "A practical checklist that turns vague category interest into a concrete buying workflow.",
-      prompt: `Write a checklist page for buyers evaluating ${topic}.`,
-      intentTypes: ["checklist", "buyers_guide"],
+        "A practical checklist that turns a vague topic into an article a busy customer can use immediately.",
+      prompt: `Write a checklist article about ${topic}.`,
+      intentTypes: ["checklist", "explainer"],
       contentType: "Checklist",
     },
     {
       articleId: null,
-      headline: `How to measure ${topic} before competitors win the citation`,
+      headline: `How to choose the right ${topic} option`,
       whyThisWorks:
-        "Demo mode: measurement-led pages make the invisible problem concrete by tying prompts, cited competitors, and missing pages to a repeatable workflow.",
+        "Demo mode: comparison and choice articles work well when readers are evaluating options and need a clear recommendation framework.",
       suggestedOutline: [
-        "Explain the measurement problem",
-        "Map the prompts buyers ask",
-        "Compare current visibility against competitors",
-        "Prioritize pages to create or improve",
+        "Describe when this decision matters",
+        "Compare the main options",
+        "Explain how to choose by situation",
+        "Close with a simple next step",
       ],
       readerIntentTakeaway:
-        "A founder or marketer gets a concrete visibility-monitoring workflow.",
+        "The reader can choose the right option without doing separate research.",
       informationGainSlot:
-        "A measurement-first article that links prompt evidence to content action.",
-      prompt: `Write an explainer about measuring ${topic}.`,
-      intentTypes: ["explainer"],
-      contentType: "Explainer",
+        "A decision framework that makes the article more useful than a generic overview.",
+      prompt: `Write a decision article about ${topic}.`,
+      intentTypes: ["comparison", "buyers_guide"],
+      contentType: "Comparison page",
     },
   ];
 
@@ -89,28 +88,28 @@ function storedIdeaToResultIdea(idea: StoredIdea, contentGapStatus: "gap" | "par
 export class DemoAutorankMcpService {
   constructor(private readonly stateStore: StateStore) {}
 
-  async getContentIdeasForTopic(input: {
+  async getArticleIdeasForTopic(input: {
     topicText: string;
     numIdeas?: number;
-  }): Promise<TopicIdeasResult> {
+  }): Promise<ArticleIdeasResult> {
     const topicName = input.topicText.trim();
     const promptTexts = demoPrompts(topicName);
     const contentGapStatus = "partial" as const;
     const ideas = demoIdeas(topicName, input.numIdeas ?? 2);
-    const runState: LastTopicRunState = {
+    const runState: LastArticleIdeasRunState = {
       topicId: "demo-topic",
       topicName,
       promptTexts,
       promptsWithResults: promptTexts.length,
-      topCompetitorDomains: ["sample-category-leader.example", "sample-visibility-tool.example"],
+      topCompetitorDomains: ["sample-business.example", "sample-guide.example"],
       sampleCitedUrls: [
-        "https://sample-category-leader.example/checklist",
-        "https://sample-visibility-tool.example/resources",
+        "https://sample-business.example/checklist",
+        "https://sample-guide.example/resources",
       ],
       targetUrl: null,
       contentGapStatus,
       patternSummary:
-        "Demo mode: configure AUTORANK_API_KEY, AUTORANK_DOMAIN_ID, and AUTORANK_API_BASE_URL for live AutoRank evidence.",
+        "Demo mode: configure AUTORANK_API_KEY, AUTORANK_DOMAIN_ID, and AUTORANK_API_BASE_URL for live AutoRank evidence and full article generation.",
       ideas,
       createdAt: new Date().toISOString(),
     };
@@ -118,7 +117,7 @@ export class DemoAutorankMcpService {
     const current = await this.stateStore.load();
     await this.stateStore.save({
       ...current,
-      lastTopicRun: runState,
+      lastArticleIdeasRun: runState,
     });
 
     return {
@@ -136,64 +135,50 @@ export class DemoAutorankMcpService {
     };
   }
 
-  async explainIdea(index: number): Promise<ExplainIdeaToolResult> {
+  async createArticle(input: { ideaIndex: number }): Promise<CreateArticleResult> {
     const state = await this.stateStore.load();
-    const run = state.lastTopicRun;
+    const run = state.lastArticleIdeasRun;
     if (!run) {
-      throw new Error("No topic idea run found. Generate content ideas first.");
+      throw new Error("No article idea run found. Generate article ideas first.");
     }
 
-    const idea = run.ideas[index];
+    const idea = run.ideas[input.ideaIndex];
     if (!idea) {
-      throw new Error(`Idea ${index + 1} does not exist.`);
+      throw new Error(`Idea ${input.ideaIndex + 1} does not exist.`);
     }
+
+    const markdown = [
+      `# ${idea.headline}`,
+      "",
+      `Readers searching for ${run.topicName} usually want a practical answer they can act on quickly. ${idea.readerIntentTakeaway ?? ""}`.trim(),
+      "",
+      "## Why this matters",
+      "",
+      idea.whyThisWorks.replace(/^Demo mode:\s*/i, ""),
+      "",
+      "## What to cover",
+      "",
+      ...idea.suggestedOutline.map((item) => `- ${item}`),
+      "",
+      "## Practical next step",
+      "",
+      `Use this article to answer the most common questions about ${run.topicName}, then adapt the examples to your actual business and customer language.`,
+      "",
+      "## References",
+      "",
+      ...run.sampleCitedUrls.map((url) => `- [Sample evidence](${url})`),
+    ].join("\n");
 
     return {
-      idea: {
-        index: index + 1,
-        title: idea.headline,
-        content_type: idea.contentType,
-        priority: inferPriority({
-          whyThisWorks: idea.whyThisWorks,
-          contentGapStatus: run.contentGapStatus,
-        }),
-      },
-      why_this_matters: idea.whyThisWorks,
-      relevant_prompts: run.promptTexts,
-      competitors_cited: run.topCompetitorDomains,
-      cited_urls: run.sampleCitedUrls,
-      existing_page: run.targetUrl,
-      recommended_angle:
-        idea.informationGainSlot ??
-        compactWhyThisWorks(idea.whyThisWorks),
-      proof_notes: run.patternSummary,
-    };
-  }
-
-  async createContentBrief(index: number): Promise<ContentBriefToolResult> {
-    const state = await this.stateStore.load();
-    const run = state.lastTopicRun;
-    if (!run) {
-      throw new Error("No topic idea run found. Generate content ideas first.");
-    }
-
-    const idea = run.ideas[index];
-    if (!idea) {
-      throw new Error(`Idea ${index + 1} does not exist.`);
-    }
-
-    return {
+      articleId: "demo-article",
       title: idea.headline,
-      audience: idea.readerIntentTakeaway,
-      content_type: idea.contentType,
-      target_prompts: run.promptTexts,
-      outline: idea.suggestedOutline,
-      key_claims: [idea.whyThisWorks],
-      faq: [],
-      cta: "Start free with AutoRank",
-      metadata_notes: [
-        "Demo mode: this brief uses sample evidence. Configure an AutoRank MCP key for live citation data.",
-      ],
+      markdown,
+      sources: run.sampleCitedUrls.map((url) => ({
+        name: new URL(url).hostname.replace(/^www\./, ""),
+        url,
+        notes: "Demo evidence",
+      })),
+      jobId: null,
     };
   }
 }

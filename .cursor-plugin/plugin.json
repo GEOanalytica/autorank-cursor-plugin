@@ -1,8 +1,8 @@
 {
   "name": "autorank-content-ideas",
-  "displayName": "AutoRank Content Ideas",
+  "displayName": "AutoRank Article Ideas",
   "version": "0.1.0",
-  "description": "Generate AI-search content ideas and briefs backed by AutoRank citation evidence.",
+  "description": "Generate article ideas and full markdown drafts in Cursor backed by AutoRank AI-search evidence.",
   "author": {
     "name": "AutoRank",
     "email": "nima@autorank.ai"
@@ -14,6 +14,7 @@
     "autorank",
     "ai-search",
     "mcp",
+    "article-ideas",
     "content-ideas",
     "geo"
   ],
@@ -21,6 +22,7 @@
   "tags": [
     "mcp",
     "content",
+    "articles",
     "seo",
     "geo"
   ],
