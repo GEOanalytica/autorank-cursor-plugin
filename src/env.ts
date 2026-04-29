@@ -72,30 +72,37 @@ function firstNonEmptyEnvValue(...values: Array<string | undefined>): string {
   return "";
 }
 
+function readEnvValue(name: string, ...fallbacks: Array<string | undefined>): string {
+  if (Object.prototype.hasOwnProperty.call(process.env, name)) {
+    return normalizeEnvValue(process.env[name]);
+  }
+  return firstNonEmptyEnvValue(...fallbacks);
+}
+
 export function readAutorankEnv(): AutorankEnvStatus {
   const cwdEnv = readOptionalEnvFile(".env");
   const cwdLocalEnv = readOptionalEnvFile(".env.local");
 
-  const explicitApiBaseUrl = firstNonEmptyEnvValue(
-    process.env.AUTORANK_API_BASE_URL,
+  const explicitApiBaseUrl = readEnvValue(
+    "AUTORANK_API_BASE_URL",
     cwdEnv.AUTORANK_API_BASE_URL,
     cwdLocalEnv.AUTORANK_API_BASE_URL,
   );
-  const apiKey = firstNonEmptyEnvValue(
-    process.env.AUTORANK_API_KEY,
+  const apiKey = readEnvValue(
+    "AUTORANK_API_KEY",
     cwdEnv.AUTORANK_API_KEY,
     cwdLocalEnv.AUTORANK_API_KEY,
   );
-  const domainId = firstNonEmptyEnvValue(
-    process.env.AUTORANK_DOMAIN_ID,
+  const domainId = readEnvValue(
+    "AUTORANK_DOMAIN_ID",
     cwdEnv.AUTORANK_DOMAIN_ID,
     cwdLocalEnv.AUTORANK_DOMAIN_ID,
   );
-  const supabaseUrl = firstNonEmptyEnvValue(
-    process.env.VITE_SUPABASE_URL,
+  const supabaseUrl = readEnvValue(
+    "VITE_SUPABASE_URL",
     cwdEnv.VITE_SUPABASE_URL,
     cwdLocalEnv.VITE_SUPABASE_URL,
-    process.env.SUPABASE_URL,
+    readEnvValue("SUPABASE_URL"),
   );
   const apiBaseUrl = explicitApiBaseUrl || (supabaseUrl ? `${supabaseUrl.replace(/\/+$/, "")}/functions/v1` : "");
 
@@ -111,8 +118,8 @@ export function readAutorankEnv(): AutorankEnvStatus {
       domainId,
     },
     missing,
-    demoMode: isTruthyEnv(firstNonEmptyEnvValue(
-      process.env.AUTORANK_DEMO_MODE,
+    demoMode: isTruthyEnv(readEnvValue(
+      "AUTORANK_DEMO_MODE",
       cwdEnv.AUTORANK_DEMO_MODE,
       cwdLocalEnv.AUTORANK_DEMO_MODE,
     )),

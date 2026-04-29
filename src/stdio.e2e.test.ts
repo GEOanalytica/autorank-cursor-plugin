@@ -208,4 +208,45 @@ describe("Cursor stdio e2e", () => {
       await client.close();
     }
   });
+
+  it("treats unresolved Cursor env placeholders as missing credentials", async () => {
+    const statePath = join(stateDir, "placeholder-state.json");
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: ["dist/server.js"],
+      cwd: process.cwd(),
+      env: {
+        PATH: process.env.PATH ?? "",
+        HOME: process.env.HOME ?? "",
+        AUTORANK_API_KEY: "${env:AUTORANK_API_KEY}",
+        AUTORANK_DOMAIN_ID: "${env:AUTORANK_DOMAIN_ID}",
+        AUTORANK_API_BASE_URL: "${env:AUTORANK_API_BASE_URL}",
+        AUTORANK_MCP_STATE_PATH: statePath,
+      },
+      stderr: "pipe",
+    });
+    const client = new Client({ name: "autorank-placeholder-client", version: "0.1.0" });
+
+    await client.connect(transport);
+
+    try {
+      const ideasResult = await client.callTool({
+        name: "get_content_ideas_for_topic",
+        arguments: {
+          topic_text: "AI search monitoring for B2B SaaS",
+          num_ideas: 1,
+        },
+      });
+
+      const payload = JSON.stringify(ideasResult.structuredContent);
+      expect(payload).toContain("Demo mode");
+      expect(payload).toContain("AI search monitoring for B2B SaaS");
+
+      const persistedState = await readFile(statePath, "utf8");
+      expect(persistedState).toContain("Demo mode");
+      expect(persistedState).not.toMatch(/refresh_token|access_token|service_role|amcp_/i);
+    } finally {
+      await client.close();
+    }
+  });
 });
