@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
-const shouldRun = process.env.AUTORANK_RUN_PROD_E2E === "1";
+const shouldRun =
+  process.env.AUTORANK_RUN_LIVE_E2E === "1" ||
+  process.env.AUTORANK_RUN_PROD_E2E === "1";
 const describeProd = shouldRun ? describe : describe.skip;
 
 function requireEnv(name: string): string {
@@ -16,7 +18,7 @@ function requireEnv(name: string): string {
   return value;
 }
 
-describeProd("AutoRank production MCP smoke", () => {
+describeProd("AutoRank live MCP smoke", () => {
   let stateDir: string | null = null;
 
   afterAll(async () => {
