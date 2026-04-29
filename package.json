@@ -19,6 +19,7 @@
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run src/service.test.ts src/server.test.ts",
     "test:e2e": "npm run build && vitest run src/stdio.e2e.test.ts",
+    "test:prod": "npm run build && AUTORANK_RUN_PROD_E2E=1 vitest run src/prod.e2e.test.ts --testTimeout=420000",
     "test:all": "npm run type-check && npm test && npm run test:e2e",
     "start": "tsx src/server.ts",
     "inspect": "npx @modelcontextprotocol/inspector node dist/server.js",

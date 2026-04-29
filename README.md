@@ -68,10 +68,20 @@ Release gates before marketplace submission:
 1. Unit tests pass: `npm test`
 2. Stdio e2e passes: `npm run test:e2e`
 3. Public install smoke passes: `npx -y github:GEOanalytica/autorank-cursor-plugin`
-4. Production e2e passes against an internal AutoRank domain and scoped MCP key
+4. Production e2e passes against an internal AutoRank domain and scoped MCP key: `npm run test:prod`
 5. No core product UI or app bundle changes are required for plugin UX iteration
 
 The e2e test starts the compiled MCP server the same way Cursor does, sends it through a mock AutoRank API, verifies the `Authorization` and `domain_id` contract, exercises the ideas -> explain -> brief flow, and checks that secrets are not written into local state or tool responses.
+
+The production smoke uses the same compiled stdio server against a real deployed AutoRank API. It is opt-in and requires:
+
+```bash
+export AUTORANK_API_KEY="amcp_..."
+export AUTORANK_DOMAIN_ID="..."
+export AUTORANK_API_BASE_URL="https://<project-ref>.supabase.co/functions/v1"
+export AUTORANK_E2E_TOPIC="AI search monitoring for B2B SaaS"
+npm run test:prod
+```
 
 ## Manual UX Smoke
 
