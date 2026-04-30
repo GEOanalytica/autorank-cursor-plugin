@@ -10,6 +10,7 @@
   "homepage": "https://autorank.ai",
   "repository": "https://github.com/GEOanalytica/autorank-cursor-plugin",
   "license": "MIT",
+  "logo": "https://autorank.ai/logos/AutoRankLogov2squaremini.png",
   "keywords": [
     "autorank",
     "ai-search",
