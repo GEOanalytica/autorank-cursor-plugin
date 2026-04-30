@@ -22,6 +22,14 @@ export interface ArticleIdeasResult {
   targetUrl: string | null;
   contentGapStatus: "gap" | "partial" | null;
   patternSummary: string | null;
+  workflowStatus?: {
+    mode: "live_ideas" | "fast_fallback" | "stored_ideas";
+    message: string;
+    evidence: "ready" | "queued";
+    articleIdeas: "ready" | "fallback";
+    backgroundJobId: string | null;
+    analysisSessionId: string | null;
+  } | null;
   sessionId: string | null;
   ideas: IdeaCard[];
 }
@@ -39,6 +47,14 @@ export interface ArticleIdeasToolResult {
     sample_cited_urls: string[];
     notes: string | null;
   };
+  workflow_status: {
+    mode: "live_ideas" | "fast_fallback" | "stored_ideas";
+    message: string;
+    evidence: "ready" | "queued";
+    article_ideas: "ready" | "fallback";
+    background_job_id: string | null;
+    analysis_session_id: string | null;
+  } | null;
   ideas: Array<{
     article_id: string | null;
     title: string;

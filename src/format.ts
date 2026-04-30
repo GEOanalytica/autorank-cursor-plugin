@@ -23,6 +23,9 @@ export function formatArticleIdeasResult(result: ArticleIdeasToolResult): string
   return [
     `Topic: ${result.topic.name}`,
     `Evidence status: ${result.evidence_summary.status}`,
+    result.workflow_status
+      ? `AutoRank status: ${result.workflow_status.message}`
+      : null,
     `Prompts checked: ${result.evidence_summary.prompts_used.length}`,
     `Prompts with results: ${result.evidence_summary.prompts_with_results}`,
     result.evidence_summary.notes ? `Notes: ${result.evidence_summary.notes}` : null,

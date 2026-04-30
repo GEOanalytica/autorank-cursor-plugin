@@ -158,6 +158,12 @@ export class AutorankMcpService {
       | null;
 
     if (!response.ok) {
+      if (response.status === 504) {
+        throw new Error(
+          "AutoRank took too long collecting live AI-search evidence. Try again with 2-3 ideas; background evidence jobs may still finish for this topic.",
+        );
+      }
+
       const errorMessage =
         payload &&
         typeof payload === "object" &&

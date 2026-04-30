@@ -19,6 +19,56 @@ export type AutorankToolService = Pick<
   "getArticleIdeasForTopic" | "createArticle"
 >;
 
+type ToolCallbackExtra = {
+  _meta?: { progressToken?: string | number };
+  sendNotification?: (notification: {
+    method: "notifications/progress";
+    params: {
+      progressToken: string | number;
+      progress: number;
+      total?: number;
+      message?: string;
+    };
+  }) => Promise<void>;
+};
+
+async function sendProgress(
+  extra: ToolCallbackExtra | undefined,
+  progress: number,
+  total: number,
+  message: string,
+): Promise<void> {
+  const progressToken = extra?._meta?.progressToken;
+  if (!progressToken || !extra?.sendNotification) return;
+
+  await extra.sendNotification({
+    method: "notifications/progress",
+    params: {
+      progressToken,
+      progress,
+      total,
+      message,
+    },
+  }).catch(() => {
+    // Some MCP clients do not render progress notifications yet.
+  });
+}
+
+function startProgressTicker(
+  extra: ToolCallbackExtra | undefined,
+  messages: string[],
+): () => void {
+  let index = 0;
+  void sendProgress(extra, 1, messages.length + 1, messages[0]);
+
+  const timer = setInterval(() => {
+    index = Math.min(index + 1, messages.length - 1);
+    void sendProgress(extra, index + 1, messages.length + 1, messages[index]);
+  }, 7000);
+
+  return () => clearInterval(timer);
+}
+
 function createMissingConfigService(missing: string[]): AutorankToolService {
   const message = [
     `AutoRank MCP is partially configured and cannot call the live API. Missing: ${missing.join(", ")}.`,
@@ -75,13 +125,13 @@ export function createAutorankMcpServer(
   server.registerTool(
     "get_article_ideas_for_topic",
     {
-      title: "Get article ideas for topic",
+      title: "Get article ideas with AutoRank",
       description:
-        "Turn a business topic into a short list of article ideas backed by AutoRank domain context and AI-search evidence when available.",
+        "Turn a business topic into 1-3 article ideas. AutoRank returns quickly with live evidence when ready, or fast fallback ideas while background evidence jobs continue.",
       inputSchema: {
         topic_text: z.string().describe("Topic to explore, for example jacuzzi maintenance or passwordless login"),
         num_prompts: z.number().int().min(3).max(5).optional(),
-        num_ideas: z.number().int().min(1).max(5).optional(),
+        num_ideas: z.number().int().min(1).max(3).optional(),
         evidence_wait_ms: z.number().int().min(1000).max(300000).optional(),
         ideas_wait_ms: z.number().int().min(1000).max(300000).optional(),
       },
@@ -98,6 +148,14 @@ export function createAutorankMcpServer(
           sample_cited_urls: z.array(z.string()),
           notes: z.string().nullable(),
         }),
+        workflow_status: z.object({
+          mode: z.enum(["live_ideas", "fast_fallback", "stored_ideas"]),
+          message: z.string(),
+          evidence: z.enum(["ready", "queued"]),
+          article_ideas: z.enum(["ready", "fallback"]),
+          background_job_id: z.string().nullable(),
+          analysis_session_id: z.string().nullable(),
+        }).nullable(),
         ideas: z.array(
           z.object({
             article_id: z.string().nullable(),
@@ -114,14 +172,28 @@ export function createAutorankMcpServer(
         ),
       },
     },
-    async ({ topic_text, num_prompts, num_ideas, evidence_wait_ms, ideas_wait_ms }) => {
-      const result = await toolService.getArticleIdeasForTopic({
-        topicText: topic_text,
-        numPrompts: num_prompts,
-        numIdeas: num_ideas,
-        evidenceWaitMs: evidence_wait_ms,
-        ideasWaitMs: ideas_wait_ms,
-      });
+    async ({ topic_text, num_prompts, num_ideas, evidence_wait_ms, ideas_wait_ms }, extra) => {
+      const stopProgress = startProgressTicker(extra, [
+        "AutoRank is preparing prompts for this topic.",
+        "AutoRank is checking AI-search evidence.",
+        "AutoRank is generating fast article ideas.",
+        "AutoRank is packaging ideas for Cursor.",
+      ]);
+
+      let result;
+      try {
+        result = await toolService.getArticleIdeasForTopic({
+          topicText: topic_text,
+          numPrompts: num_prompts,
+          numIdeas: num_ideas,
+          evidenceWaitMs: evidence_wait_ms,
+          ideasWaitMs: ideas_wait_ms,
+        });
+      } finally {
+        stopProgress();
+      }
+
+      await sendProgress(extra, 5, 5, "AutoRank returned article ideas.");
 
       const structuredContent = {
         topic: {
@@ -136,6 +208,16 @@ export function createAutorankMcpServer(
           sample_cited_urls: result.sampleCitedUrls,
           notes: result.patternSummary,
         },
+        workflow_status: result.workflowStatus
+          ? {
+              mode: result.workflowStatus.mode,
+              message: result.workflowStatus.message,
+              evidence: result.workflowStatus.evidence,
+              article_ideas: result.workflowStatus.articleIdeas,
+              background_job_id: result.workflowStatus.backgroundJobId,
+              analysis_session_id: result.workflowStatus.analysisSessionId,
+            }
+          : null,
         ideas: result.ideas.map((idea) => ({
           article_id: idea.articleId,
           title: idea.headline,
@@ -160,7 +242,7 @@ export function createAutorankMcpServer(
   server.registerTool(
     "create_article",
     {
-      title: "Create article",
+      title: "Write article with AutoRank",
       description:
         "Write the selected article idea from the latest get_article_ideas_for_topic run as full markdown.",
       inputSchema: {
@@ -183,13 +265,27 @@ export function createAutorankMcpServer(
         job_id: z.string().nullable(),
       },
     },
-    async ({ idea_index, article_length, reader_level, article_wait_ms }) => {
-      const result = await toolService.createArticle({
-        ideaIndex: idea_index - 1,
-        articleLength: article_length,
-        readerLevel: reader_level,
-        articleWaitMs: article_wait_ms,
-      });
+    async ({ idea_index, article_length, reader_level, article_wait_ms }, extra) => {
+      const stopProgress = startProgressTicker(extra, [
+        "AutoRank is starting the article writer.",
+        "AutoRank is drafting markdown from the selected idea.",
+        "AutoRank is saving the draft article.",
+        "AutoRank is returning the finished markdown to Cursor.",
+      ]);
+
+      let result;
+      try {
+        result = await toolService.createArticle({
+          ideaIndex: idea_index - 1,
+          articleLength: article_length,
+          readerLevel: reader_level,
+          articleWaitMs: article_wait_ms,
+        });
+      } finally {
+        stopProgress();
+      }
+
+      await sendProgress(extra, 5, 5, "AutoRank returned the markdown article.");
 
       const structuredContent = {
         article_id: result.articleId,
