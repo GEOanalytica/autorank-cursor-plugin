@@ -86,6 +86,34 @@ describe("mcp API calls", () => {
     expect(JSON.stringify(state)).not.toContain("amcp_test");
   });
 
+  it("caps article idea request budgets for the fast Cursor workflow", async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify(fixtureArticleIdeasResult), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const service = new AutorankMcpService(new MemoryStateStore(), {
+      apiBaseUrl: "https://api.example.test/functions/v1",
+      apiKey: "amcp_test",
+      domainId: "domain_1",
+    });
+
+    await service.getArticleIdeasForTopic({
+      topicText: "AI visibility monitoring for startups",
+      numPrompts: 5,
+      numIdeas: 5,
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      num_prompts: 3,
+      num_ideas: 3,
+    });
+  });
+
   it("creates a full article from the selected stored idea without persisting markdown locally", async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(JSON.stringify(fixtureCreateArticleResult), {

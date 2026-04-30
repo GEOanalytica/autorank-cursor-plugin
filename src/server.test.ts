@@ -33,6 +33,13 @@ describe("autorank mcp server", () => {
         "get_article_ideas_for_topic",
       ]);
       expect(JSON.stringify(tools.tools)).not.toMatch(/setup|otp|workspace|token|supabase/i);
+      const ideasTool = tools.tools.find((tool) => tool.name === "get_article_ideas_for_topic");
+      expect(ideasTool?.inputSchema.properties?.num_ideas).toMatchObject({
+        maximum: 3,
+      });
+      expect(ideasTool?.inputSchema.properties?.num_prompts).toMatchObject({
+        maximum: 3,
+      });
 
       const ideasResult = await client.callTool({
         name: "get_article_ideas_for_topic",

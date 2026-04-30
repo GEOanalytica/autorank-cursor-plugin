@@ -118,7 +118,7 @@ export function createAutorankMcpServer(
     },
     {
       instructions:
-        "Use get_article_ideas_for_topic to generate article ideas from a business topic, then create_article to write the selected idea as full markdown. Configure AUTORANK_API_KEY, AUTORANK_DOMAIN_ID, and AUTORANK_API_BASE_URL for live AutoRank evidence.",
+        "Use get_article_ideas_for_topic to generate 3 article ideas by default from a business topic, then create_article to write the selected idea as full markdown. Do not ask how many ideas unless the user explicitly asks for that choice. Configure AUTORANK_API_KEY, AUTORANK_DOMAIN_ID, and AUTORANK_API_BASE_URL for live AutoRank evidence.",
     },
   );
 
@@ -127,10 +127,10 @@ export function createAutorankMcpServer(
     {
       title: "Get article ideas with AutoRank",
       description:
-        "Turn a business topic into 1-3 article ideas. AutoRank returns quickly with live evidence when ready, or fast fallback ideas while background evidence jobs continue.",
+        "Turn a business topic into 1-3 article ideas. Default to 3 ideas unless the user asks for 1 or 2. AutoRank returns quickly with live evidence when ready, or fast fallback ideas while background evidence jobs continue.",
       inputSchema: {
         topic_text: z.string().describe("Topic to explore, for example jacuzzi maintenance or passwordless login"),
-        num_prompts: z.number().int().min(3).max(5).optional(),
+        num_prompts: z.number().int().min(3).max(3).optional(),
         num_ideas: z.number().int().min(1).max(3).optional(),
         evidence_wait_ms: z.number().int().min(1000).max(300000).optional(),
         ideas_wait_ms: z.number().int().min(1000).max(300000).optional(),

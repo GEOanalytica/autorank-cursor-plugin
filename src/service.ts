@@ -187,8 +187,12 @@ export class AutorankMcpService {
     const result = await this.invokeContentIdeasApi<ArticleIdeasApiResponse>({
       action: "get_article_ideas_for_topic",
       topic_text: input.topicText,
-      num_prompts: input.numPrompts,
-      num_ideas: input.numIdeas,
+      num_prompts: typeof input.numPrompts === "number"
+        ? Math.min(Math.max(input.numPrompts, 3), 3)
+        : input.numPrompts,
+      num_ideas: typeof input.numIdeas === "number"
+        ? Math.min(Math.max(input.numIdeas, 1), 3)
+        : input.numIdeas,
       evidence_wait_ms: input.evidenceWaitMs,
       ideas_wait_ms: input.ideasWaitMs,
     });

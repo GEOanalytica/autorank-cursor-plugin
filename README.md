@@ -26,7 +26,7 @@ Do not submit the private AutoRank app repository.
 The reviewer flow is:
 
 1. Ask Cursor for article ideas about a topic, for example `Give me article ideas about jacuzzi maintenance`.
-2. AutoRank returns 1 to 3 article ideas with reader intent, takeaway, outline, why the idea works, and evidence notes.
+2. AutoRank returns 3 article ideas by default, or 1-2 when the user asks for fewer, with reader intent, takeaway, outline, why the idea works, and evidence notes.
 3. Ask Cursor to write one selected idea, for example `Create article 1`.
 4. AutoRank returns a complete markdown article draft and source metadata.
 
@@ -139,7 +139,7 @@ Turns a business topic into article ideas. Live mode uses AutoRank domain contex
 Inputs:
 
 - `topic_text`: topic to explore
-- `num_prompts`: optional, 3 to 5
+- `num_prompts`: optional, fixed at 3 for the fast Cursor workflow
 - `num_ideas`: optional, 1 to 3
 - `evidence_wait_ms`: optional live evidence wait budget
 - `ideas_wait_ms`: optional article-idea wait budget
